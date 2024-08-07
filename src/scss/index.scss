@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+// Tools
+
+@import "./tools/global.scss";
+
+// Components
+
+@import "./components/timeline.scss";
