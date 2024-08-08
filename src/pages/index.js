@@ -87,7 +87,7 @@ export default function Home({ result }) {
 
   return (
     <div className="timeline-container">
-      <h2 className="font-lato text-5xl font-black text-[#252525]">
+      <h2 className="font-lato text-5xl font-black text-[#252525] text-center py-8">
         Event Timeline{" "}
         <span className="font-lato text-5xl font-light text-[#252525]">
           2024
