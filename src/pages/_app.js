@@ -1,6 +1,8 @@
 import "../scss/index.scss";
+
 import { PrimeReactProvider } from "primereact/api";
 import "primereact/resources/themes/lara-light-cyan/theme.css";
+import "primeicons/primeicons.css";
 
 export default function App({ Component, pageProps }) {
   return (
