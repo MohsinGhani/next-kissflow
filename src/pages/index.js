@@ -87,12 +87,12 @@ export default function Home({ result }) {
 
   return (
     <div className="timeline-container">
-      <h2 className="font-lato text-5xl font-black text-[#252525] text-center py-8">
+      {/* <h2 className="font-lato text-5xl font-black text-[#252525] text-center py-8">
         Event Timeline{" "}
         <span className="font-lato text-5xl font-light text-[#252525]">
           2024
         </span>
-      </h2>
+      </h2> */}
       {/* <div className="w-[992px] flex gap-3 items-center justify-center mt-8">
         <IconField
           iconPosition="left"
