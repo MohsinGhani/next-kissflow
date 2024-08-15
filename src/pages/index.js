@@ -1,10 +1,31 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Timeline } from "primereact/timeline";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
 import moment from "moment";
+import { Dropdown } from "primereact/dropdown";
+import { Tooltip } from "primereact/tooltip";
 
 export default function Home({ result }) {
+  const [selectedLocoNumber, setSelectedLocoNumber] = useState(null);
+  const [locomotiveNumbers, setLocomotiveNumbers] = useState([]);
+
+  useEffect(() => {
+    if (result?.Data) {
+      const uniqueLocoNumbers = [
+        ...new Set(result.Data.map((item) => item.Locomotive_Number)),
+      ].map((number) => number);
+
+      setLocomotiveNumbers(uniqueLocoNumbers);
+    }
+  }, [result]);
+
+  useEffect(() => {
+    if (result?.Data?.length > 0) {
+      setSelectedLocoNumber(result.Data[0].Locomotive_Number);
+    }
+  }, [result]);
+
   const getDateAfter60Days = () => {
     const currentDate = moment();
     const futureDate = currentDate.add(60, "days");
@@ -13,114 +34,91 @@ export default function Home({ result }) {
   };
 
   const customizedContent = (item) => {
-    const {
-      _id,
-      Work_Order_Number,
-      Locomotive_Number,
-      Forecast_Date,
-      Job_Plan_Description,
-    } = item;
+    const { _id, WO_Number, Next_Due_Date, JP_Description } = item;
 
     const futureDate = getDateAfter60Days();
     const isForecastDateWithin60Days = moment(
-      Forecast_Date,
+      Next_Due_Date,
       "YYYY-MM-DD"
     ).isBefore(moment(futureDate, "YYYY-MM-DD"));
 
     return (
       <>
-        {Work_Order_Number ? (
-          <Card
-            key={_id}
-            className={
-              isForecastDateWithin60Days ? "yellow-card" : "green-card"
-            }
-          >
-            <div className="flex items-center justify-between">
+        {WO_Number ? (
+          <>
+            <Card
+              key={_id}
+              className={
+                isForecastDateWithin60Days ? "yellow-card" : "green-card"
+              }
+              // data-pr-tooltip={JP_Description} // Add tooltip content
+              // data-pr-position="top" // Tooltip position
+              // data-pr-at="top" // Tooltip alignment
+              // data-pr-my="center" // Tooltip alignment
+            >
               <Tag
-                value={`# ${Work_Order_Number}`}
+                value={`# ${WO_Number}`}
                 className={`font-lato text-sm font-semibold ${
                   isForecastDateWithin60Days ? "bg-[#F9A400]" : "bg-[#0EBE20]"
                 }`}
               />
               <Tag
                 icon="pi pi-calendar"
-                value={Forecast_Date}
-                className={`rounded-r-none font-lato text-sm font-normal ${
+                value={Next_Due_Date}
+                className={`font-lato text-sm font-normal ${
                   isForecastDateWithin60Days ? "bg-[#666666]" : "bg-[#666666]"
                 }`}
               />
-            </div>
-            <h3 className="font-lato text-2xl font-bold text-black">
-              {Locomotive_Number}
-            </h3>
-            <p
-              className="pr-4 text-[#6A6A6A] text-sm card-description"
-              title={Job_Plan_Description}
-            >
-              {Job_Plan_Description}
-            </p>
-          </Card>
+            </Card>
+            {/* <Tooltip target={`.p-card[data-pr-tooltip]`} /> */}
+          </>
         ) : (
-          <Card key={_id} className="simple-card">
-            <div className="flex items-center justify-between">
-              <h3 className="font-lato text-2xl font-bold text-black">
-                {Locomotive_Number}
-              </h3>
+          <>
+            <Card
+              key={_id}
+              className="simple-card"
+              // data-pr-tooltip={JP_Description}
+            >
               <Tag
                 icon="pi pi-calendar"
-                value={Forecast_Date}
-                className="rounded-r-none bg-[#015FDF]"
+                value={Next_Due_Date}
+                className="bg-[#015FDF]"
               />
-            </div>
-            <p
-              className="pr-4 text-[#6A6A6A] text-sm card-description"
-              title={Job_Plan_Description}
-            >
-              {Job_Plan_Description}
-            </p>
-          </Card>
+            </Card>
+            {/* <Tooltip target={`.p-card[data-pr-tooltip]`} /> */}
+          </>
         )}
       </>
     );
   };
 
+  const filteredData = (result?.Data || [])?.filter(
+    (item) => item.Locomotive_Number === selectedLocoNumber
+  );
+
   return (
-    <div className="timeline-container">
-      {/* <h2 className="font-lato text-5xl font-black text-[#252525] text-center py-8">
-        Event Timeline{" "}
-        <span className="font-lato text-5xl font-light text-[#252525]">
-          2024
-        </span>
-      </h2> */}
-      {/* <div className="w-[992px] flex gap-3 items-center justify-center mt-8">
-        <IconField
-          iconPosition="left"
-          className="timeline-search-container w-full"
-        >
-          <InputIcon className="pi pi-search" />
-          <InputText
-            v-model="value1"
-            placeholder="Search by Forecasted number / status / PM type / Priority / UOM "
-            className="timeline-search w-full"
-          />
-        </IconField>
-        <Button
-          label="Filters"
-          icon="pi pi-filter"
-          iconPos="left"
-          className="w-28"
+    <div className="timeline-container py-4">
+      <div className="w-full flex justify-center items-center">
+        <Dropdown
+          value={selectedLocoNumber}
+          onChange={(e) => setSelectedLocoNumber(e.value)}
+          options={locomotiveNumbers}
+          optionLabel="name"
+          placeholder="Select Locomotive Number"
+          className="w-1/4"
         />
-      </div> */}
+      </div>
       <div className="data-timeline-container">
-        <Timeline
-          value={result?.Data}
-          content={customizedContent}
-          align="alternate"
-          layout="horizontal"
-          opposite={<span>&nbsp;</span>}
-          className="data-timeline"
-        />
+        <div className="max-w-7xl">
+          <Timeline
+            value={filteredData}
+            content={customizedContent}
+            align="alternate"
+            layout="horizontal"
+            opposite={<span>&nbsp;</span>}
+            className="data-timeline"
+          />
+        </div>
       </div>
     </div>
   );
@@ -128,8 +126,12 @@ export default function Home({ result }) {
 
 export async function getServerSideProps() {
   try {
+    const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
+    const accountId = process.env.NEXT_PUBLIC_ACCOUNT_ID;
+    const formId = process.env.NEXT_PUBLIC_FORM_ID;
+
     const response = await fetch(
-      "https://development-diginergynfr.kissflow.eu/form/2/Ac86Ze9Cpd_e/Dummy_Fleet_Data_A00/list",
+      `${baseURL}/form/2/${accountId}/${formId}/list?page_size=50`,
       {
         method: "GET",
         headers: {
