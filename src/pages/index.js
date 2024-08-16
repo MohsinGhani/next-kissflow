@@ -2,9 +2,9 @@ import React, { useEffect, useState } from "react";
 import { Timeline } from "primereact/timeline";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
-import moment from "moment";
 import { Dropdown } from "primereact/dropdown";
 import { Tooltip } from "primereact/tooltip";
+import moment from "moment";
 
 export default function Home({ result }) {
   const [selectedLocoNumber, setSelectedLocoNumber] = useState(null);
@@ -48,13 +48,12 @@ export default function Home({ result }) {
           <>
             <Card
               key={_id}
-              className={
+              className={`custom-card ${
                 isForecastDateWithin60Days ? "yellow-card" : "green-card"
-              }
-              // data-pr-tooltip={JP_Description} // Add tooltip content
-              // data-pr-position="top" // Tooltip position
-              // data-pr-at="top" // Tooltip alignment
-              // data-pr-my="center" // Tooltip alignment
+              }`}
+              data-pr-tooltip={JP_Description}
+              data-pr-classname="description-tooltip"
+              data-pr-position="mouse"
             >
               <Tag
                 value={`# ${WO_Number}`}
@@ -70,14 +69,16 @@ export default function Home({ result }) {
                 }`}
               />
             </Card>
-            {/* <Tooltip target={`.p-card[data-pr-tooltip]`} /> */}
+            <Tooltip target={`.custom-card`} />
           </>
         ) : (
           <>
             <Card
               key={_id}
               className="simple-card"
-              // data-pr-tooltip={JP_Description}
+              data-pr-tooltip={JP_Description}
+              data-pr-classname="description-tooltip"
+              data-pr-position="mouse"
             >
               <Tag
                 icon="pi pi-calendar"
@@ -85,7 +86,7 @@ export default function Home({ result }) {
                 className="bg-[#015FDF]"
               />
             </Card>
-            {/* <Tooltip target={`.p-card[data-pr-tooltip]`} /> */}
+            <Tooltip target={`.simple-card`} />
           </>
         )}
       </>
