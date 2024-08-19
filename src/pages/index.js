@@ -3,7 +3,6 @@ import { Timeline } from "primereact/timeline";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
 import { Dropdown } from "primereact/dropdown";
-import { Tooltip } from "primereact/tooltip";
 import moment from "moment";
 
 export default function Home({ result }) {
@@ -51,9 +50,6 @@ export default function Home({ result }) {
               className={`custom-card ${
                 isForecastDateWithin60Days ? "yellow-card" : "green-card"
               }`}
-              data-pr-tooltip={JP_Description}
-              data-pr-classname="description-tooltip"
-              data-pr-position="mouse"
             >
               <Tag
                 value={`# ${WO_Number}`}
@@ -68,25 +64,23 @@ export default function Home({ result }) {
                   isForecastDateWithin60Days ? "bg-[#666666]" : "bg-[#666666]"
                 }`}
               />
+              <p className="card-description text-xs" title={JP_Description}>
+                {JP_Description}
+              </p>
             </Card>
-            <Tooltip target={`.custom-card`} />
           </>
         ) : (
           <>
-            <Card
-              key={_id}
-              className="simple-card"
-              data-pr-tooltip={JP_Description}
-              data-pr-classname="description-tooltip"
-              data-pr-position="mouse"
-            >
+            <Card key={_id} className="simple-card">
               <Tag
                 icon="pi pi-calendar"
                 value={Next_Due_Date}
                 className="bg-[#015FDF]"
               />
+              <p className="card-description text-xs" title={JP_Description}>
+                {JP_Description}
+              </p>
             </Card>
-            <Tooltip target={`.simple-card`} />
           </>
         )}
       </>
@@ -98,8 +92,8 @@ export default function Home({ result }) {
   );
 
   return (
-    <div className="timeline-container py-4">
-      <div className="w-full flex justify-center items-center">
+    <div className="timeline-container pt-4">
+      <div className="w-full flex justify-center items-center fixed">
         <Dropdown
           value={selectedLocoNumber}
           onChange={(e) => setSelectedLocoNumber(e.value)}
@@ -110,7 +104,7 @@ export default function Home({ result }) {
         />
       </div>
       <div className="data-timeline-container">
-        <div className="max-w-7xl">
+        <div className="max-w-full">
           <Timeline
             value={filteredData}
             content={customizedContent}

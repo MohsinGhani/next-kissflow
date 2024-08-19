@@ -6,8 +6,7 @@
     justify-content: center;
     align-items: center;
     .data-timeline {
-      overflow: auto;
-      height: 300px;
+      height: calc(100vh - 130px);
       .p-timeline-event {
         min-width: 175px;
         max-width: 175px;
@@ -15,7 +14,7 @@
         .p-timeline-event-separator {
           position: relative;
           .p-timeline-event-marker {
-            background-color: #015fdf;
+            // background-color: #015fdf;
             position: absolute;
             top: 50%;
             bottom: 50%;
@@ -29,6 +28,8 @@
         }
         .p-timeline-event-content {
           margin: 0 8px;
+          display: flex;
+          justify-content: center;
           .p-card-body {
             padding: 16px;
             .p-card-content {
@@ -38,14 +39,19 @@
               gap: 8px;
             }
           }
-          .simple-card {
+          .simple-card,
+          .green-card,
+          .yellow-card {
+            // transform: rotate(-90deg);
+            width: 175px;
+            height: 175px;
             box-shadow: 0 2px 24px 0 rgba(219, 219, 219, 0.25);
             border: 1px solid #e6e6e6;
             border-radius: 8px;
             .card-description {
               display: -webkit-box;
-              line-clamp: 3;
-              -webkit-line-clamp: 3;
+              line-clamp: 5;
+              -webkit-line-clamp: 5;
               -webkit-box-orient: vertical;
               overflow: hidden;
             }
@@ -53,35 +59,20 @@
           .green-card {
             box-shadow: 0 2px 32px 0 #e8ffea;
             border: 1px solid #0ebe20;
-            border-radius: 8px;
             background-color: #fafffa;
-            .card-description {
-              display: -webkit-box;
-              line-clamp: 3;
-              -webkit-line-clamp: 3;
-              -webkit-box-orient: vertical;
-              overflow: hidden;
-            }
           }
           .yellow-card {
             box-shadow: 0 2px 32px 0 #fffbf2;
             border: 1px solid #f9a400;
-            border-radius: 8px;
             background-color: #fffcf8;
-            .card-description {
-              display: -webkit-box;
-              line-clamp: 3;
-              -webkit-line-clamp: 3;
-              -webkit-box-orient: vertical;
-              overflow: hidden;
-            }
           }
         }
       }
     }
+    :nth-child(even) {
+      .p-timeline-event-content {
+        align-items: end;
+      }
+    }
   }
-}
-
-.description-tooltip {
-  max-width: 300px;
 }
