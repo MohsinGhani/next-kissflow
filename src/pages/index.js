@@ -6,6 +6,7 @@ import { Dropdown } from "primereact/dropdown";
 import moment from "moment";
 
 export default function Home({ result }) {
+  console.log("🚀 ~ result:", result);
   const [selectedLocoNumber, setSelectedLocoNumber] = useState(null);
   const [locomotiveNumbers, setLocomotiveNumbers] = useState([]);
 
@@ -33,7 +34,7 @@ export default function Home({ result }) {
   };
 
   const customizedContent = (item) => {
-    const { _id, WO_Number, Next_Due_Date, JP_Description } = item;
+    const { _id, WO_Number, Next_Due_Date, PM_Description } = item;
 
     const futureDate = getDateAfter60Days();
     const isForecastDateWithin60Days = moment(
@@ -64,8 +65,8 @@ export default function Home({ result }) {
                   isForecastDateWithin60Days ? "bg-[#666666]" : "bg-[#666666]"
                 }`}
               />
-              <p className="card-description text-xs" title={JP_Description}>
-                {JP_Description}
+              <p className="card-description text-xs" title={PM_Description}>
+                {PM_Description}
               </p>
             </Card>
           </>
@@ -77,8 +78,8 @@ export default function Home({ result }) {
                 value={Next_Due_Date}
                 className="bg-[#015FDF]"
               />
-              <p className="card-description text-xs" title={JP_Description}>
-                {JP_Description}
+              <p className="card-description text-xs" title={PM_Description}>
+                {PM_Description}
               </p>
             </Card>
           </>
