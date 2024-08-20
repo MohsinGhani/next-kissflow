@@ -6,7 +6,6 @@ import { Dropdown } from "primereact/dropdown";
 import moment from "moment";
 
 export default function Home({ result }) {
-  console.log("🚀 ~ result:", result);
   const [selectedLocoNumber, setSelectedLocoNumber] = useState(null);
   const [locomotiveNumbers, setLocomotiveNumbers] = useState([]);
 
