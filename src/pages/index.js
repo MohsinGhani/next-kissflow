@@ -142,7 +142,7 @@ export default function Home({ result }) {
           placeholder="Select Locomotive Number"
           className="w-1/4"
         />
-        <div>
+        <div className="w-1/4">
           <Calendar
             value={dates}
             onChange={(e) => setDates(e.value)}
@@ -153,6 +153,7 @@ export default function Home({ result }) {
             dateFormat="MM/yy"
             placeholder="Date Range"
             showButtonBar
+            className="w-full"
           />
         </div>
       </div>
