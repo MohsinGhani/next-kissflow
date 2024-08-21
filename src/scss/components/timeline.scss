@@ -14,16 +14,22 @@
         .p-timeline-event-separator {
           position: relative;
           .p-timeline-event-marker {
-            // background-color: #015fdf;
             position: absolute;
             top: 50%;
             bottom: 50%;
             left: 50%;
             right: 50%;
             transform: translate(-50%, -50%);
+            z-index: 1;
           }
           .p-timeline-event-connector {
             border-color: #217efd;
+            position: absolute;
+            top: 50%;
+            bottom: 50%;
+            left: 100%;
+            right: 100%;
+            transform: translate(-50%, -50%);
           }
         }
         .p-timeline-event-content {
@@ -42,7 +48,6 @@
           .simple-card,
           .green-card,
           .yellow-card {
-            // transform: rotate(-90deg);
             width: 175px;
             height: 175px;
             box-shadow: 0 2px 24px 0 rgba(219, 219, 219, 0.25);

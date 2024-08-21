@@ -4,16 +4,19 @@ import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
 import { Dropdown } from "primereact/dropdown";
 import moment from "moment";
+import { Calendar } from "primereact/calendar";
 
 export default function Home({ result }) {
   const [selectedLocoNumber, setSelectedLocoNumber] = useState(null);
   const [locomotiveNumbers, setLocomotiveNumbers] = useState([]);
+  const [dates, setDates] = useState(null);
 
   useEffect(() => {
     if (result?.Data) {
       const uniqueLocoNumbers = [
+        "All",
         ...new Set(result.Data.map((item) => item.Locomotive_Number)),
-      ].map((number) => number);
+      ];
 
       setLocomotiveNumbers(uniqueLocoNumbers);
     }
@@ -21,7 +24,7 @@ export default function Home({ result }) {
 
   useEffect(() => {
     if (result?.Data?.length > 0) {
-      setSelectedLocoNumber(result.Data[0].Locomotive_Number);
+      setSelectedLocoNumber("All");
     }
   }, [result]);
 
@@ -36,10 +39,16 @@ export default function Home({ result }) {
     const { _id, WO_Number, Next_Due_Date, PM_Description } = item;
 
     const futureDate = getDateAfter60Days();
-    const isForecastDateWithin60Days = moment(
-      Next_Due_Date,
-      "YYYY-MM-DD"
-    ).isBefore(moment(futureDate, "YYYY-MM-DD"));
+    const currentDate = moment().startOf("day");
+    const dueDate = moment(Next_Due_Date, "YYYY-MM-DD");
+
+    const isForecastDateWithin60Days = dueDate.isBetween(
+      currentDate,
+      futureDate,
+      "days",
+      "[]"
+    );
+    const isDueDateInPast = dueDate.isBefore(currentDate);
 
     return (
       <>
@@ -48,13 +57,21 @@ export default function Home({ result }) {
             <Card
               key={_id}
               className={`custom-card ${
-                isForecastDateWithin60Days ? "yellow-card" : "green-card"
+                isDueDateInPast
+                  ? "green-card"
+                  : isForecastDateWithin60Days
+                  ? "yellow-card"
+                  : "green-card"
               }`}
             >
               <Tag
                 value={`# ${WO_Number}`}
                 className={`font-lato text-sm font-semibold ${
-                  isForecastDateWithin60Days ? "bg-[#F9A400]" : "bg-[#0EBE20]"
+                  isDueDateInPast
+                    ? "bg-[#0EBE20]"
+                    : isForecastDateWithin60Days
+                    ? "bg-[#F9A400]"
+                    : "bg-[#0EBE20]"
                 }`}
               />
               <Tag
@@ -87,21 +104,57 @@ export default function Home({ result }) {
     );
   };
 
-  const filteredData = (result?.Data || [])?.filter(
-    (item) => item.Locomotive_Number === selectedLocoNumber
-  );
+  const filteredData = (result?.Data || [])
+    .filter((item) => {
+      const matchesLocoNumber =
+        selectedLocoNumber === "All" ||
+        item.Locomotive_Number === selectedLocoNumber;
+
+      const matchesDateRange = dates
+        ? moment(item.Next_Due_Date).isBetween(
+            moment(dates[0]).startOf("month"),
+            moment(dates[1]).endOf("month"),
+            null,
+            "[]"
+          )
+        : true;
+
+      return matchesLocoNumber && matchesDateRange;
+    })
+    .sort((a, b) => {
+      const dateA = moment(a.Next_Due_Date);
+      const dateB = moment(b.Next_Due_Date);
+
+      // Sort in ascending order
+      return dateA.isAfter(dateB) ? 1 : dateA.isBefore(dateB) ? -1 : 0;
+    });
 
   return (
     <div className="timeline-container pt-4">
-      <div className="w-full flex justify-center items-center fixed">
+      <div className="w-full flex justify-center items-center gap-4 fixed">
         <Dropdown
           value={selectedLocoNumber}
           onChange={(e) => setSelectedLocoNumber(e.value)}
-          options={locomotiveNumbers}
-          optionLabel="name"
+          options={locomotiveNumbers.map((number) => ({
+            label: number,
+            value: number,
+          }))}
           placeholder="Select Locomotive Number"
           className="w-1/4"
         />
+        <div>
+          <Calendar
+            value={dates}
+            onChange={(e) => setDates(e.value)}
+            selectionMode="range"
+            readOnlyInput
+            hideOnRangeSelection
+            view="month"
+            dateFormat="MM/yy"
+            placeholder="Date Range"
+            showButtonBar
+          />
+        </div>
       </div>
       <div className="data-timeline-container">
         <div className="max-w-full">
