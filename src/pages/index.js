@@ -2,29 +2,24 @@ import React, { useEffect, useState } from "react";
 import { Timeline } from "primereact/timeline";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
-import { Dropdown } from "primereact/dropdown";
+import { MultiSelect } from "primereact/multiselect";
 import moment from "moment";
 import { Calendar } from "primereact/calendar";
+import { FloatLabel } from "primereact/floatlabel";
 
 export default function Home({ result }) {
-  const [selectedLocoNumber, setSelectedLocoNumber] = useState(null);
+  const [selectedLocoNumbers, setSelectedLocoNumbers] = useState([]);
   const [locomotiveNumbers, setLocomotiveNumbers] = useState([]);
   const [dates, setDates] = useState(null);
 
   useEffect(() => {
     if (result?.Data) {
       const uniqueLocoNumbers = [
-        "All",
         ...new Set(result.Data.map((item) => item.Locomotive_Number)),
       ];
 
       setLocomotiveNumbers(uniqueLocoNumbers);
-    }
-  }, [result]);
-
-  useEffect(() => {
-    if (result?.Data?.length > 0) {
-      setSelectedLocoNumber("All");
+      setSelectedLocoNumbers(uniqueLocoNumbers);
     }
   }, [result]);
 
@@ -36,7 +31,8 @@ export default function Home({ result }) {
   };
 
   const customizedContent = (item) => {
-    const { _id, WO_Number, Next_Due_Date, PM_Description } = item;
+    const { _id, WO_Number, Next_Due_Date, PM_Description, Locomotive_Number } =
+      item;
 
     const futureDate = getDateAfter60Days();
     const currentDate = moment().startOf("day");
@@ -64,6 +60,9 @@ export default function Home({ result }) {
                   : "green-card"
               }`}
             >
+              <h3 className="font-lato text-xl font-bold text-black">
+                {Locomotive_Number}
+              </h3>
               <Tag
                 value={`# ${WO_Number}`}
                 className={`font-lato text-sm font-semibold ${
@@ -89,6 +88,9 @@ export default function Home({ result }) {
         ) : (
           <>
             <Card key={_id} className="simple-card">
+              <h3 className="font-lato text-xl font-bold text-black">
+                {Locomotive_Number}
+              </h3>
               <Tag
                 icon="pi pi-calendar"
                 value={Next_Due_Date}
@@ -107,8 +109,8 @@ export default function Home({ result }) {
   const filteredData = (result?.Data || [])
     .filter((item) => {
       const matchesLocoNumber =
-        selectedLocoNumber === "All" ||
-        item.Locomotive_Number === selectedLocoNumber;
+        !selectedLocoNumbers?.length ||
+        selectedLocoNumbers.includes(item.Locomotive_Number);
 
       const matchesDateRange = dates
         ? moment(item.Next_Due_Date).isBetween(
@@ -125,36 +127,46 @@ export default function Home({ result }) {
       const dateA = moment(a.Next_Due_Date);
       const dateB = moment(b.Next_Due_Date);
 
-      // Sort in ascending order
       return dateA.isAfter(dateB) ? 1 : dateA.isBefore(dateB) ? -1 : 0;
     });
 
   return (
-    <div className="timeline-container pt-4">
+    <div className="timeline-container pt-8">
       <div className="w-full flex justify-center items-center gap-4 fixed">
-        <Dropdown
-          value={selectedLocoNumber}
-          onChange={(e) => setSelectedLocoNumber(e.value)}
-          options={locomotiveNumbers.map((number) => ({
-            label: number,
-            value: number,
-          }))}
-          placeholder="Select Locomotive Number"
-          className="w-1/4"
-        />
         <div className="w-1/4">
-          <Calendar
-            value={dates}
-            onChange={(e) => setDates(e.value)}
-            selectionMode="range"
-            readOnlyInput
-            hideOnRangeSelection
-            view="month"
-            dateFormat="MM/yy"
-            placeholder="Date Range"
-            showButtonBar
-            className="w-full"
-          />
+          <FloatLabel>
+            <MultiSelect
+              value={selectedLocoNumbers}
+              onChange={(e) => setSelectedLocoNumbers(e.value)}
+              options={locomotiveNumbers.map((number) => ({
+                label: number,
+                value: number,
+              }))}
+              selectAllLabel="All"
+              placeholder="Select Locomotive Numbers"
+              showClear
+              className="w-full"
+              display="chip"
+            />
+            <label htmlFor="ms-loco">Locomotive Numbers</label>
+          </FloatLabel>
+        </div>
+        <div className="w-1/4">
+          <FloatLabel>
+            <Calendar
+              value={dates}
+              onChange={(e) => setDates(e.value)}
+              selectionMode="range"
+              readOnlyInput
+              hideOnRangeSelection
+              view="month"
+              dateFormat="MM/yy"
+              placeholder="Month Range"
+              showButtonBar
+              className="w-full"
+            />
+            <label htmlFor="ms-month">Month Range</label>
+          </FloatLabel>
         </div>
       </div>
       <div className="data-timeline-container">
@@ -180,7 +192,7 @@ export async function getServerSideProps() {
     const formId = process.env.NEXT_PUBLIC_FORM_ID;
 
     const response = await fetch(
-      `${baseURL}/form/2/${accountId}/${formId}/list?page_size=50`,
+      `${baseURL}/form/2/${accountId}/${formId}/list?page_size=100`,
       {
         method: "GET",
         headers: {

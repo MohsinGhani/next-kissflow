@@ -49,7 +49,8 @@
           .green-card,
           .yellow-card {
             width: 175px;
-            height: 175px;
+            height: fit-content;
+            // height: 175px;
             box-shadow: 0 2px 24px 0 rgba(219, 219, 219, 0.25);
             border: 1px solid #e6e6e6;
             border-radius: 8px;
