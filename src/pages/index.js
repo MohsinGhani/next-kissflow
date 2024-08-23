@@ -6,16 +6,22 @@ import { MultiSelect } from "primereact/multiselect";
 import moment from "moment";
 import { Calendar } from "primereact/calendar";
 import { FloatLabel } from "primereact/floatlabel";
+import { Button } from "primereact/button";
 
 export default function Home({ result }) {
   const [selectedLocoNumbers, setSelectedLocoNumbers] = useState([]);
   const [locomotiveNumbers, setLocomotiveNumbers] = useState([]);
   const [dates, setDates] = useState(null);
+  const [buttonFilter, setButtonFilter] = useState(null);
 
   useEffect(() => {
     if (result?.Data) {
       const uniqueLocoNumbers = [
-        ...new Set(result.Data.map((item) => item.Locomotive_Number)),
+        ...new Set(
+          result.Data.map((item) => item?.Loco_Description).filter(
+            (description) => description !== null && description !== undefined
+          )
+        ),
       ];
 
       setLocomotiveNumbers(uniqueLocoNumbers);
@@ -31,7 +37,7 @@ export default function Home({ result }) {
   };
 
   const customizedContent = (item) => {
-    const { _id, WO_Number, Next_Due_Date, PM_Description, Locomotive_Number } =
+    const { _id, WO_Number, Next_Due_Date, PM_Description, Loco_Description } =
       item;
 
     const futureDate = getDateAfter60Days();
@@ -61,7 +67,7 @@ export default function Home({ result }) {
               }`}
             >
               <h3 className="font-lato text-xl font-bold text-black">
-                {Locomotive_Number}
+                {Loco_Description}
               </h3>
               <Tag
                 value={`# ${WO_Number}`}
@@ -89,7 +95,7 @@ export default function Home({ result }) {
           <>
             <Card key={_id} className="simple-card">
               <h3 className="font-lato text-xl font-bold text-black">
-                {Locomotive_Number}
+                {Loco_Description}
               </h3>
               <Tag
                 icon="pi pi-calendar"
@@ -110,7 +116,7 @@ export default function Home({ result }) {
     .filter((item) => {
       const matchesLocoNumber =
         !selectedLocoNumbers?.length ||
-        selectedLocoNumbers.includes(item.Locomotive_Number);
+        selectedLocoNumbers.includes(item?.Loco_Description);
 
       const matchesDateRange = dates
         ? moment(item.Next_Due_Date).isBetween(
@@ -168,6 +174,14 @@ export default function Home({ result }) {
             <label htmlFor="ms-month">Month Range</label>
           </FloatLabel>
         </div>
+        {/* <div className="flex justify-center items-center gap-4">
+          <Button label="Next 3 Months" onClick={() => setButtonFilter("3")} />
+          <Button label="Next 6 Months" onClick={() => setButtonFilter("6")} />
+          <Button
+            label="Next 12 Months"
+            onClick={() => setButtonFilter("12")}
+          />
+        </div> */}
       </div>
       <div className="data-timeline-container">
         <div className="max-w-full">
