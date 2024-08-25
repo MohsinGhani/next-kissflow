@@ -12,7 +12,6 @@ export default function Home({ result }) {
   const [selectedLocoNumbers, setSelectedLocoNumbers] = useState([]);
   const [locomotiveNumbers, setLocomotiveNumbers] = useState([]);
   const [dates, setDates] = useState(null);
-  const [buttonFilter, setButtonFilter] = useState(null);
 
   useEffect(() => {
     if (result?.Data) {
@@ -29,18 +28,21 @@ export default function Home({ result }) {
     }
   }, [result]);
 
-  const getDateAfter60Days = () => {
-    const currentDate = moment();
-    const futureDate = currentDate.add(60, "days");
+  const getDateAfterDays = (days) => {
+    return moment().add(days, "days").toDate();
+  };
 
-    return futureDate.format("YYYY-MM-DD");
+  const handleNextMonthsFilter = (months) => {
+    const startDate = moment().startOf("day").toDate();
+    const endDate = getDateAfterDays(months * 30); // Rough estimate for days in a month
+    setDates([startDate, endDate]);
   };
 
   const customizedContent = (item) => {
     const { _id, WO_Number, Next_Due_Date, PM_Description, Loco_Description } =
       item;
 
-    const futureDate = getDateAfter60Days();
+    const futureDate = getDateAfterDays(60);
     const currentDate = moment().startOf("day");
     const dueDate = moment(Next_Due_Date, "YYYY-MM-DD");
 
@@ -120,8 +122,8 @@ export default function Home({ result }) {
 
       const matchesDateRange = dates
         ? moment(item.Next_Due_Date).isBetween(
-            moment(dates[0]).startOf("month"),
-            moment(dates[1]).endOf("month"),
+            moment(dates[0]).startOf("day"),
+            moment(dates[1]).endOf("day"),
             null,
             "[]"
           )
@@ -138,50 +140,61 @@ export default function Home({ result }) {
 
   return (
     <div className="timeline-container pt-8">
-      <div className="w-full flex justify-center items-center gap-4 fixed">
-        <div className="w-1/4">
-          <FloatLabel>
-            <MultiSelect
-              value={selectedLocoNumbers}
-              onChange={(e) => setSelectedLocoNumbers(e.value)}
-              options={locomotiveNumbers.map((number) => ({
-                label: number,
-                value: number,
-              }))}
-              selectAllLabel="All"
-              placeholder="Select Locomotive Numbers"
-              showClear
-              className="w-full"
-              display="chip"
-            />
-            <label htmlFor="ms-loco">Locomotive Numbers</label>
-          </FloatLabel>
+      <div className="w-full fixed flex flex-col justify-center items-center gap-4">
+        <div className="w-full flex justify-center items-center gap-4">
+          <div className="w-1/4">
+            <FloatLabel>
+              <MultiSelect
+                value={selectedLocoNumbers}
+                onChange={(e) => setSelectedLocoNumbers(e.value)}
+                options={locomotiveNumbers.map((number) => ({
+                  label: number,
+                  value: number,
+                }))}
+                selectAllLabel="All"
+                placeholder="Select Locomotive Numbers"
+                showClear
+                className="w-full"
+                display="chip"
+              />
+              <label htmlFor="ms-loco">Locomotive Numbers</label>
+            </FloatLabel>
+          </div>
+          <div className="w-1/4">
+            <FloatLabel>
+              <Calendar
+                value={dates}
+                onChange={(e) => setDates(e.value)}
+                selectionMode="range"
+                readOnlyInput
+                hideOnRangeSelection
+                view="month"
+                dateFormat="MM/yy"
+                placeholder="Month Range"
+                showButtonBar
+                className="w-full"
+              />
+              <label htmlFor="ms-month">Month Range</label>
+            </FloatLabel>
+          </div>
         </div>
-        <div className="w-1/4">
-          <FloatLabel>
-            <Calendar
-              value={dates}
-              onChange={(e) => setDates(e.value)}
-              selectionMode="range"
-              readOnlyInput
-              hideOnRangeSelection
-              view="month"
-              dateFormat="MM/yy"
-              placeholder="Month Range"
-              showButtonBar
-              className="w-full"
-            />
-            <label htmlFor="ms-month">Month Range</label>
-          </FloatLabel>
-        </div>
-        {/* <div className="flex justify-center items-center gap-4">
-          <Button label="Next 3 Months" onClick={() => setButtonFilter("3")} />
-          <Button label="Next 6 Months" onClick={() => setButtonFilter("6")} />
+        <div className="w-full flex justify-center items-center gap-4">
+          <Button
+            label="Next 3 Months"
+            onClick={() => handleNextMonthsFilter(3)}
+            className="bg-[#015FDF] border-[#015FDF]"
+          />
+          <Button
+            label="Next 6 Months"
+            onClick={() => handleNextMonthsFilter(6)}
+            className="bg-[#015FDF] border-[#015FDF]"
+          />
           <Button
             label="Next 12 Months"
-            onClick={() => setButtonFilter("12")}
+            onClick={() => handleNextMonthsFilter(12)}
+            className="bg-[#015FDF] border-[#015FDF]"
           />
-        </div> */}
+        </div>
       </div>
       <div className="data-timeline-container">
         <div className="max-w-full">
