@@ -54,6 +54,13 @@ export default function Home({ result }) {
     );
     const isDueDateInPast = dueDate.isBefore(currentDate);
 
+    // Calculate days difference
+    const daysDifference = dueDate.diff(currentDate, "days");
+    const daysText =
+      daysDifference > 0
+        ? `In ${daysDifference} days`
+        : `${Math.abs(daysDifference)} days ago`;
+
     return (
       <>
         {WO_Number ? (
@@ -71,6 +78,11 @@ export default function Home({ result }) {
               <h3 className="font-lato text-xl font-bold text-black">
                 {Loco_Description}
               </h3>
+              {daysDifference !== 0 && (
+                <p className={`text-center font-lato text-sm text-gray-700`}>
+                  {daysText}
+                </p>
+              )}
               <Tag
                 value={`# ${WO_Number}`}
                 className={`font-lato text-sm font-semibold ${
@@ -99,6 +111,11 @@ export default function Home({ result }) {
               <h3 className="font-lato text-xl font-bold text-black">
                 {Loco_Description}
               </h3>
+              {daysDifference !== 0 && (
+                <p className="text-center font-lato text-sm text-gray-700">
+                  {daysText}
+                </p>
+              )}
               <Tag
                 icon="pi pi-calendar"
                 value={Next_Due_Date}
@@ -112,6 +129,27 @@ export default function Home({ result }) {
         )}
       </>
     );
+  };
+
+  const customizedMarker = (item) => {
+    const currentDate = moment().startOf("day");
+    const forecastedDate = moment(item?.Next_Due_Date).startOf("day");
+
+    if (currentDate.isSame(forecastedDate, "day")) {
+      // Custom marker for when currentDate and forecastedDate are the same
+      return (
+        <span className="w-full flex items-center justify-center z-10 custom-marker z-10">
+          <Tag icon="pi pi-calendar" className="bg-[#015FDF]">
+            Today
+          </Tag>
+        </span>
+      );
+    } else {
+      // Default marker
+      return (
+        <span className="flex items-center justify-center w-4 h-4 rounded-full border-2 border-[#217efd] bg-white custom-marker" />
+      );
+    }
   };
 
   const filteredData = (result?.Data || [])
@@ -141,7 +179,7 @@ export default function Home({ result }) {
   return (
     <div className="timeline-container pt-8">
       <div className="w-full fixed flex flex-col justify-center items-center gap-4">
-        <div className="w-full flex justify-center items-center gap-4">
+        <div className="w-full flex justify-center items-start gap-4">
           <div className="w-1/4">
             <FloatLabel>
               <MultiSelect
@@ -160,7 +198,7 @@ export default function Home({ result }) {
               <label htmlFor="ms-loco">Locomotive Numbers</label>
             </FloatLabel>
           </div>
-          <div className="w-1/4">
+          <div className="w-1/4 flex flex-col gap-4 justify-center">
             <FloatLabel>
               <Calendar
                 value={dates}
@@ -176,24 +214,24 @@ export default function Home({ result }) {
               />
               <label htmlFor="ms-month">Month Range</label>
             </FloatLabel>
+            <div className="w-full flex justify-center items-center gap-4">
+              <Button
+                label="Next 3 Months"
+                onClick={() => handleNextMonthsFilter(3)}
+                className="bg-[#015FDF] border-[#015FDF] px-[4px] py-[4px] text-sm"
+              />
+              <Button
+                label="Next 6 Months"
+                onClick={() => handleNextMonthsFilter(6)}
+                className="bg-[#015FDF] border-[#015FDF] px-[4px] py-[4px] text-sm"
+              />
+              <Button
+                label="Next 12 Months"
+                onClick={() => handleNextMonthsFilter(12)}
+                className="bg-[#015FDF] border-[#015FDF] px-[4px] py-[4px] text-sm"
+              />
+            </div>
           </div>
-        </div>
-        <div className="w-full flex justify-center items-center gap-4">
-          <Button
-            label="Next 3 Months"
-            onClick={() => handleNextMonthsFilter(3)}
-            className="bg-[#015FDF] border-[#015FDF]"
-          />
-          <Button
-            label="Next 6 Months"
-            onClick={() => handleNextMonthsFilter(6)}
-            className="bg-[#015FDF] border-[#015FDF]"
-          />
-          <Button
-            label="Next 12 Months"
-            onClick={() => handleNextMonthsFilter(12)}
-            className="bg-[#015FDF] border-[#015FDF]"
-          />
         </div>
       </div>
       <div className="data-timeline-container">
@@ -205,6 +243,7 @@ export default function Home({ result }) {
             layout="horizontal"
             opposite={<span>&nbsp;</span>}
             className="data-timeline"
+            marker={customizedMarker}
           />
         </div>
       </div>

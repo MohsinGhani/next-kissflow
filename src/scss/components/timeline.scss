@@ -11,9 +11,12 @@
         min-width: 175px;
         max-width: 175px;
         min-height: 0;
+        .p-timeline-event-opposite {
+          padding: 1.5rem 0;
+        }
         .p-timeline-event-separator {
           position: relative;
-          .p-timeline-event-marker {
+          .custom-marker {
             position: absolute;
             top: 50%;
             bottom: 50%;
@@ -21,7 +24,6 @@
             right: 50%;
             transform: translate(-50%, -50%);
             z-index: 1;
-            border-color: #217efd;
           }
           .p-timeline-event-connector {
             border-color: #217efd;
@@ -35,6 +37,7 @@
         }
         .p-timeline-event-content {
           margin: 0 8px;
+          padding: 1.5rem 0;
           display: flex;
           justify-content: center;
           .p-card-body {
@@ -51,7 +54,6 @@
           .yellow-card {
             width: 175px;
             height: fit-content;
-            // height: 175px;
             box-shadow: 0 2px 24px 0 rgba(219, 219, 219, 0.25);
             border: 1px solid #e6e6e6;
             border-radius: 8px;
