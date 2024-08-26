@@ -218,17 +218,17 @@ export default function Home({ result }) {
               <Button
                 label="Next 3 Months"
                 onClick={() => handleNextMonthsFilter(3)}
-                className="bg-[#015FDF] border-[#015FDF] px-[8px] py-[6px] text-sm"
+                className="bg-[#015FDF] border-[#015FDF] px-[8px] py-[6px] text-sm flex-1"
               />
               <Button
                 label="Next 6 Months"
                 onClick={() => handleNextMonthsFilter(6)}
-                className="bg-[#015FDF] border-[#015FDF] px-[8px] py-[6px] text-sm"
+                className="bg-[#015FDF] border-[#015FDF] px-[8px] py-[6px] text-sm flex-1"
               />
               <Button
                 label="Next 12 Months"
                 onClick={() => handleNextMonthsFilter(12)}
-                className="bg-[#015FDF] border-[#015FDF] px-[8px] py-[6px] text-sm"
+                className="bg-[#015FDF] border-[#015FDF] px-[8px] py-[6px] text-sm flex-1"
               />
             </div>
           </div>
