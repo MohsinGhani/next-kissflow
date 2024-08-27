@@ -54,12 +54,39 @@ export default function Home({ result }) {
     );
     const isDueDateInPast = dueDate.isBefore(currentDate);
 
-    // Calculate days difference
     const daysDifference = dueDate.diff(currentDate, "days");
-    const daysText =
-      daysDifference > 0
-        ? `In ${daysDifference} days`
-        : `${Math.abs(daysDifference)} days ago`;
+
+    let daysText = "";
+    if (daysDifference > 0) {
+      if (daysDifference > 365) {
+        const years = Math.floor(daysDifference / 365);
+        daysText = `In ${years} year${years > 1 ? "s" : ""}`;
+      } else if (daysDifference > 30) {
+        const months = Math.floor(daysDifference / 30);
+        daysText = `In ${months} month${months > 1 ? "s" : ""}`;
+      } else if (daysDifference > 7) {
+        const weeks = Math.floor(daysDifference / 7);
+        daysText = `In ${weeks} week${weeks > 1 ? "s" : ""}`;
+      } else {
+        const days = Math.floor(daysDifference / 7);
+        daysText = `In ${daysDifference} day${days !== -1 ? "s" : ""}`;
+      }
+    } else {
+      const pastDaysDifference = Math.abs(daysDifference);
+      if (pastDaysDifference > 365) {
+        const years = Math.floor(pastDaysDifference / 365);
+        daysText = `${years} year${years > 1 ? "s" : ""} ago`;
+      } else if (pastDaysDifference > 30) {
+        const months = Math.floor(pastDaysDifference / 30);
+        daysText = `${months} month${months > 1 ? "s" : ""} ago`;
+      } else if (pastDaysDifference > 7) {
+        const weeks = Math.floor(pastDaysDifference / 7);
+        daysText = `${weeks} week${weeks > 1 ? "s" : ""} ago`;
+      } else {
+        const days = Math.floor(daysDifference / 7);
+        daysText = `${pastDaysDifference} day${days !== 1 ? "s" : ""} ago`;
+      }
+    }
 
     return (
       <>
