@@ -39,8 +39,14 @@ export default function Home({ result }) {
   };
 
   const customizedContent = (item) => {
-    const { _id, WO_Number, Next_Due_Date, PM_Description, Loco_Description } =
-      item;
+    const {
+      _id,
+      WO_Number,
+      Next_Due_Date,
+      PM_Description,
+      Loco_Description,
+      Total_Budget,
+    } = item;
 
     const futureDate = getDateAfterDays(60);
     const currentDate = moment().startOf("day");
@@ -127,6 +133,12 @@ export default function Home({ result }) {
                   isForecastDateWithin60Days ? "bg-[#666666]" : "bg-[#666666]"
                 }`}
               />
+              {Total_Budget && (
+                <Tag
+                  value={Total_Budget}
+                  className="font-lato text-sm font-semibold bg-[#816952]"
+                />
+              )}
               <p className="card-description text-xs" title={PM_Description}>
                 {PM_Description}
               </p>
@@ -148,6 +160,12 @@ export default function Home({ result }) {
                 value={Next_Due_Date}
                 className="bg-[#015FDF]"
               />
+              {Total_Budget && (
+                <Tag
+                  value={Total_Budget}
+                  className="font-lato text-sm font-semibold bg-[#816952]"
+                />
+              )}
               <p className="card-description text-xs" title={PM_Description}>
                 {PM_Description}
               </p>
