@@ -7,6 +7,7 @@ import "primeicons/primeicons.css";
 export default function App({ Component, pageProps }) {
   return (
     <PrimeReactProvider>
+      
       <Component {...pageProps} />
     </PrimeReactProvider>
   );
