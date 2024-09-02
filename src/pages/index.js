@@ -106,7 +106,7 @@ export default function Home({ result }) {
                 {Loco_Description}
               </h3>
               {daysDifference !== 0 && (
-                <p className={`text-center font-lato text-sm text-gray-700`}>
+                <p className={`text-center font-lato text-sm text-textMedium`}>
                   {daysText}
                 </p>
               )}
@@ -114,17 +114,19 @@ export default function Home({ result }) {
                 value={`# ${WO_Number}`}
                 className={`font-lato text-sm font-semibold ${
                   isDueDateInPast
-                    ? "bg-[#0EBE20]"
+                    ? "bg-secondary"
                     : isForecastDateWithin60Days
-                    ? "bg-[#F9A400]"
-                    : "bg-[#0EBE20]"
+                    ? "bg-accent"
+                    : "bg-secondary"
                 }`}
               />
               <Tag
                 icon="pi pi-calendar"
                 value={Next_Due_Date}
                 className={`font-lato text-sm font-normal ${
-                  isForecastDateWithin60Days ? "bg-[#666666]" : "bg-[#666666]"
+                  isForecastDateWithin60Days
+                    ? "bg-MediumBackground"
+                    : "bg-MediumBackground"
                 }`}
               />
               <p className="card-description text-xs" title={PM_Description}>
@@ -139,14 +141,14 @@ export default function Home({ result }) {
                 {Loco_Description}
               </h3>
               {daysDifference !== 0 && (
-                <p className="text-center font-lato text-sm text-gray-700">
+                <p className="text-center font-lato text-sm text-textMedium">
                   {daysText}
                 </p>
               )}
               <Tag
                 icon="pi pi-calendar"
                 value={Next_Due_Date}
-                className="bg-[#015FDF]"
+                className="bg-primary"
               />
               <p className="card-description text-xs" title={PM_Description}>
                 {PM_Description}
@@ -163,16 +165,14 @@ export default function Home({ result }) {
     const forecastedDate = moment(item?.Next_Due_Date).startOf("day");
 
     if (currentDate.isSame(forecastedDate, "day")) {
-      // Custom marker for when currentDate and forecastedDate are the same
       return (
-        <span className="w-full flex items-center justify-center z-10 custom-marker z-10">
-          <Tag icon="pi pi-calendar" className="bg-[#015FDF]">
+        <span className="w-full flex items-center justify-center  custom-marker z-10">
+          <Tag icon="pi pi-calendar" className="bg-primary">
             Today
           </Tag>
         </span>
       );
     } else {
-      // Default marker
       return (
         <span className="flex items-center justify-center w-4 h-4 rounded-full border-2 border-[#217efd] bg-white custom-marker" />
       );
@@ -242,21 +242,14 @@ export default function Home({ result }) {
               <label htmlFor="ms-month">Month Range</label>
             </FloatLabel>
             <div className="w-full flex justify-center items-center gap-4">
-              <Button
-                label="Next 3 Months"
-                onClick={() => handleNextMonthsFilter(3)}
-                className="bg-[#015FDF] border-[#015FDF] px-[8px] py-[6px] text-sm flex-1"
-              />
-              <Button
-                label="Next 6 Months"
-                onClick={() => handleNextMonthsFilter(6)}
-                className="bg-[#015FDF] border-[#015FDF] px-[8px] py-[6px] text-sm flex-1"
-              />
-              <Button
-                label="Next 12 Months"
-                onClick={() => handleNextMonthsFilter(12)}
-                className="bg-[#015FDF] border-[#015FDF] px-[8px] py-[6px] text-sm flex-1"
-              />
+              {[3, 6, 12].map((months) => (
+                <Button
+                  key={months}
+                  label={`Next ${months} Months`}
+                  onClick={() => handleNextMonthsFilter(months)}
+                  className="bg-primary border-primary px-2 py-[6px] text-sm flex-1"
+                />
+              ))}
             </div>
           </div>
         </div>

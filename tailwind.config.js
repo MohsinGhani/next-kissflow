@@ -15,6 +15,20 @@ module.exports = {
       fontFamily: {
         lato: ["Lato", "sans-serif"],
       },
+      colors: {
+        primary: "#015FDF",
+        secondary: "#0EBE20",
+        accent: "#F9A400",
+        textMedium: "#374151",
+        MediumBackground: "#666666",
+      },
+      screens: {
+        sm: "640px",
+        md: "768px",
+        lg: "1024px",
+        xl: "1280px",
+        "2xl": "1536px",
+      },
     },
   },
   plugins: [],

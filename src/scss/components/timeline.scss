@@ -26,7 +26,7 @@
             z-index: 1;
           }
           .p-timeline-event-connector {
-            border-color: #217efd;
+            border-color: var(--primary);
             position: absolute;
             top: 50%;
             bottom: 50%;
@@ -67,12 +67,12 @@
           }
           .green-card {
             box-shadow: 0 2px 32px 0 #e8ffea;
-            border: 1px solid #0ebe20;
+            border: 1px solid  var(--secondary);
             background-color: #fafffa;
           }
           .yellow-card {
             box-shadow: 0 2px 32px 0 #fffbf2;
-            border: 1px solid #f9a400;
+            border: 1px solid var(--accent);
             background-color: #fffcf8;
           }
         }

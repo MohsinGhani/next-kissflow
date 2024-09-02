@@ -6,84 +6,51 @@ import { Button } from "primereact/button";
 import { Calendar } from "primereact/calendar";
 import { FloatLabel } from "primereact/floatlabel";
 import { MultiSelect } from "primereact/multiselect";
-import { Dialog } from "primereact/dialog";
-import { Tooltip } from "primereact/tooltip";
+import { Dropdown } from "primereact/dropdown";
 
-export default function Index({ result }) {
+const ROWS_PER_PAGE_OPTIONS = [5, 10, 25, 50];
+const DAYS_IN_MONTH = 30;
+const MAX_DESC_LENGTH = 150;
+
+const formatDescription = (desc) => {
+  return desc?.length > MAX_DESC_LENGTH
+    ? desc?.substring(0, MAX_DESC_LENGTH) + "..."
+    : desc;
+};
+
+const Index = ({ result }) => {
   const [selectedLocoNumbers, setSelectedLocoNumbers] = useState([]);
   const [locomotiveNumbers, setLocomotiveNumbers] = useState([]);
   const [dates, setDates] = useState(null);
-
-  const paginatorLeft = <Button type="button" icon="pi pi-refresh" text />;
+  const [expandedRowId, setExpandedRowId] = useState(null);
 
   useEffect(() => {
     if (result?.Data) {
       const uniqueLocoNumbers = [
         ...new Set(
-          result.Data.map((item) => item?.Loco_Description).filter(
-            (description) => description !== null && description !== undefined
-          )
+          result.Data.map((item) => item?.Loco_Description).filter(Boolean)
         ),
       ];
-
       setLocomotiveNumbers(uniqueLocoNumbers);
       setSelectedLocoNumbers(uniqueLocoNumbers);
     }
   }, [result]);
 
-  const getDateAfterDays = (days) => {
-    return moment().add(days, "days").toDate();
-  };
+  const getDateAfterDays = (days) => moment().add(days, "days").toDate();
 
   const handleNextMonthsFilter = (months) => {
     const startDate = moment().startOf("day").toDate();
-    const endDate = getDateAfterDays(months * 30);
+    const endDate = getDateAfterDays(months * DAYS_IN_MONTH);
     setDates([startDate, endDate]);
   };
 
-  const renderCell = (rowData, field) => {
-    const value = rowData[field];
-    return value ? value : "-";
-  };
-
-  const renderDescCell = (rowData) => {
-    const desc = rowData["PM_Description"];
-
-    if (!desc) {
-      return null;
-    }
-
-    const MAX_LENGTH = 150;
-    const truncatedDesc =
-      desc.length > MAX_LENGTH ? desc.substring(0, MAX_LENGTH) + "..." : desc;
-
-    return (
-      <>
-        <Tooltip
-          target=".logo"
-          mouseTrack
-          mouseTrackLeft={10}
-          style={{ width: 400 }}
-        />
-
-        {desc.length < MAX_LENGTH ? (
-          <p>{desc}</p>
-        ) : (
-          <p className="logo" data-pr-tooltip={desc} height="80px">
-            {" "}
-            {truncatedDesc}
-          </p>
-        )}
-      </>
-    );
-  };
+  const renderCell = (rowData, field) => rowData[field] || "-";
 
   const filteredData = (result?.Data || [])
     .filter((item) => {
       const matchesLocoNumber =
-        !selectedLocoNumbers?.length ||
+        !selectedLocoNumbers.length ||
         selectedLocoNumbers.includes(item?.Loco_Description);
-
       const matchesDateRange = dates
         ? moment(item.Next_Due_Date).isBetween(
             moment(dates[0]).startOf("day"),
@@ -92,15 +59,10 @@ export default function Index({ result }) {
             "[]"
           )
         : true;
-
       return matchesLocoNumber && matchesDateRange;
     })
-    .sort((a, b) => {
-      const dateA = moment(a.Next_Due_Date);
-      const dateB = moment(b.Next_Due_Date);
+    .sort((a, b) => moment(a.Next_Due_Date).diff(moment(b.Next_Due_Date)));
 
-      return dateA.isAfter(dateB) ? 1 : dateA.isBefore(dateB) ? -1 : 0;
-    });
   const columns = [
     { field: "Loco_Description", header: "Loco Description", width: "12%" },
     { field: "PM_Description", header: "PM Description", width: "30%" },
@@ -126,6 +88,37 @@ export default function Index({ result }) {
     },
     { field: "Total_Budget", header: "Total Budget", width: "12%" },
   ];
+
+  const customPaginatorTemplate = {
+    layout:
+      "RowsPerPageDropdown FirstPageLink PrevPageLink CurrentPageReport NextPageLink LastPageLink",
+    RowsPerPageDropdown: (options) => (
+      <Dropdown
+        placeholder="Rows per page"
+        value={options.value}
+        options={options.options}
+        onChange={options.onChange}
+      />
+    ),
+  };
+
+  const renderDescCell = (rowData) => {
+    const desc = rowData["PM_Description"];
+    const rowId = rowData["_id"];
+    const truncatedDesc = formatDescription(desc);
+
+    return (
+      <p
+        onClick={() =>
+          setExpandedRowId((prevId) => (prevId === rowId ? null : rowId))
+        }
+      >
+        {expandedRowId === rowId || desc?.length <= MAX_DESC_LENGTH
+          ? desc
+          : truncatedDesc}
+      </p>
+    );
+  };
 
   return (
     <div className="pt-8 mt-4">
@@ -165,21 +158,14 @@ export default function Index({ result }) {
             <label htmlFor="ms-month">Month Range</label>
           </FloatLabel>
           <div className="w-full flex justify-center items-center gap-4">
-            <Button
-              label="Next 3 Months"
-              onClick={() => handleNextMonthsFilter(3)}
-              className="bg-[#015FDF] border-[#015FDF] px-[8px] py-[6px] text-sm flex-1"
-            />
-            <Button
-              label="Next 6 Months"
-              onClick={() => handleNextMonthsFilter(6)}
-              className="bg-[#015FDF] border-[#015FDF] px-[8px] py-[6px] text-sm flex-1"
-            />
-            <Button
-              label="Next 12 Months"
-              onClick={() => handleNextMonthsFilter(12)}
-              className="bg-[#015FDF] border-[#015FDF] px-[8px] py-[6px] text-sm flex-1"
-            />
+            {[3, 6, 12].map((months) => (
+              <Button
+                key={months}
+                label={`Next ${months} Months`}
+                onClick={() => handleNextMonthsFilter(months)}
+                className="bg-primary border-primary px-2 py-[6px] text-sm flex-1"
+              />
+            ))}
           </div>
         </div>
       </div>
@@ -189,11 +175,11 @@ export default function Index({ result }) {
           paginator
           rows={7}
           showGridlines
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          tableStyle={{ minWidth: "50rem" }}
-          paginatorTemplate="RowsPerPageDropdown FirstPageLink PrevPageLink CurrentPageReport NextPageLink LastPageLink"
+          rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
+          paginatorTemplate={customPaginatorTemplate}
           currentPageReportTemplate="{first} to {last} of {totalRecords}"
-          paginatorLeft={paginatorLeft}
+          tableStyle={{ minWidth: "50rem" }}
+          paginatorLeft={<Button type="button" icon="pi pi-refresh" text />}
         >
           {columns.map((col) => (
             <Column
@@ -212,40 +198,38 @@ export default function Index({ result }) {
       </div>
     </div>
   );
-}
+};
 
 export async function getServerSideProps() {
   try {
-    const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
-    const accountId = process.env.NEXT_PUBLIC_ACCOUNT_ID;
-    const formId = process.env.NEXT_PUBLIC_FORM_ID;
+    const {
+      NEXT_PUBLIC_BASE_URL: baseURL,
+      NEXT_PUBLIC_ACCOUNT_ID: accountId,
+      NEXT_PUBLIC_FORM_ID: formId,
+      NEXT_PUBLIC_ACCESS_KEY_ID: accessKeyId,
+      NEXT_PUBLIC_ACCESS_KEY_SECRET: accessKeySecret,
+    } = process.env;
 
     const response = await fetch(
       `${baseURL}/form/2/${accountId}/${formId}/list?page_size=100`,
       {
         method: "GET",
         headers: {
-          "X-Access-Key-Id": process.env.NEXT_PUBLIC_ACCESS_KEY_ID,
-          "X-Access-Key-Secret": process.env.NEXT_PUBLIC_ACCESS_KEY_SECRET,
+          "X-Access-Key-Id": accessKeyId,
+          "X-Access-Key-Secret": accessKeySecret,
           accept: "application/json",
         },
       }
     );
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
     const result = await response.json();
-
-    return {
-      props: { result },
-    };
+    return { props: { result } };
   } catch (error) {
-    console.log("Failed to fetch KissFlow API data:", error);
-
-    return {
-      props: { result: { Data: [] } },
-    };
+    console.error("Failed to fetch data:", error);
+    return { props: { result: { Data: [] } } };
   }
 }
+
+export default Index;
