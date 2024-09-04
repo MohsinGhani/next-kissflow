@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import "primereact/resources/themes/saga-blue/theme.css";
@@ -8,24 +8,23 @@ import "primeicons/primeicons.css";
 const Table = ({ result }) => {
   const [expandedRows, setExpandedRows] = useState([]);
 
+  // Function to group costs by Loco_Description
   const groupCosts = (cost) => {
     return result.Data.reduce((acc, item) => {
-      let description = item.Loco_Description || "Unknown";
+      const description = item.Loco_Description || "Unknown";
       const costValue =
         parseFloat(item[cost]?.replace(" EUR", "").replace(",", ".")) || 0;
 
-      if (description === "undefined") {
-        description = "Unknown";
+      if (!acc[description]) {
+        acc[description] = { description, total: 0 };
       }
+      acc[description].total += costValue;
 
-      if (costValue > 0) {
-        acc[description] = acc[description] || { description, total: 0 };
-        acc[description].total += costValue;
-      }
       return acc;
     }, {});
   };
 
+  // Memoize grouped data calculation
   const groupedData = useMemo(() => {
     const laborCost = groupCosts("Estimated_Labor_Cost");
     const toolCost = groupCosts("Estimated_Tool_Cost");
@@ -38,18 +37,18 @@ const Table = ({ result }) => {
       details: Object.values(details),
     });
 
-    const data = [
+    return [
       createGroup("Labor Costs", laborCost),
       createGroup("Tool Costs", toolCost),
       createGroup("Service Costs", serviceCost),
       createGroup("Item Costs", itemCost),
     ];
-
-    return data;
   }, [result.Data]);
 
+  // Calculate the grand total
   const grandTotal = groupedData.reduce((acc, { value }) => acc + value, 0);
 
+  // Template for row expansion
   const rowExpansionTemplate = ({ details }) => (
     <DataTable value={details} tableStyle={{ minWidth: "50rem" }} showGridlines>
       <Column
@@ -60,7 +59,9 @@ const Table = ({ result }) => {
       <Column
         field="total"
         header="Total Cost"
-        body={(row) => `${row.total.toFixed(2)} EUR`}
+        body={(row) =>
+          row.total > 0 ? `${row.total.toFixed(2)} EUR` : "0 EUR"
+        }
       />
     </DataTable>
   );
@@ -73,7 +74,6 @@ const Table = ({ result }) => {
         onRowToggle={(e) => setExpandedRows(e.data)}
         rowExpansionTemplate={rowExpansionTemplate}
         dataKey="label"
-        sho
         tableStyle={{ minWidth: "50rem" }}
       >
         <Column expander style={{ width: "3rem" }} />

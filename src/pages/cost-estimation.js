@@ -31,6 +31,7 @@ const Index = ({ result }) => {
           result.Data.map((item) => item?.Loco_Description).filter(Boolean)
         ),
       ];
+      console.log(uniqueLocoNumbers);
       setLocomotiveNumbers(uniqueLocoNumbers);
       setSelectedLocoNumbers(uniqueLocoNumbers);
     }
