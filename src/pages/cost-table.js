@@ -8,23 +8,30 @@ import "primeicons/primeicons.css";
 const Table = ({ result }) => {
   const [expandedRows, setExpandedRows] = useState([]);
 
-  // Function to group costs by Loco_Description
   const groupCosts = (cost) => {
     return result.Data.reduce((acc, item) => {
       const description = item.Loco_Description || "Unknown";
-      const costValue =
-        parseFloat(item[cost]?.replace(" EUR", "").replace(",", ".")) || 0;
+      const date = item.Next_Due_Date;
+      if (date && typeof date === "string") {
+        const year = date.split("-")[0];
+        const costValue =
+          parseFloat(item[cost]?.replace(" EUR", "").replace(",", ".")) || 0;
 
-      if (!acc[description]) {
-        acc[description] = { description, total: 0 };
+        if (!acc[description]) {
+          acc[description] = { description, years: {} };
+        }
+
+        if (!acc[description].years[year]) {
+          acc[description].years[year] = 0;
+        }
+
+        acc[description].years[year] += costValue;
       }
-      acc[description].total += costValue;
 
       return acc;
     }, {});
   };
 
-  // Memoize grouped data calculation
   const groupedData = useMemo(() => {
     const laborCost = groupCosts("Estimated_Labor_Cost");
     const toolCost = groupCosts("Estimated_Tool_Cost");
@@ -33,7 +40,6 @@ const Table = ({ result }) => {
 
     const createGroup = (label, details) => ({
       label,
-      value: Object.values(details).reduce((acc, cur) => acc + cur.total, 0),
       details: Object.values(details),
     });
 
@@ -45,24 +51,67 @@ const Table = ({ result }) => {
     ];
   }, [result.Data]);
 
-  // Calculate the grand total
-  const grandTotal = groupedData.reduce((acc, { value }) => acc + value, 0);
+  const allYears = useMemo(() => {
+    const yearsSet = new Set();
+    groupedData.forEach(({ details }) =>
+      details.forEach(({ years }) =>
+        Object.keys(years).forEach((year) => yearsSet.add(year))
+      )
+    );
+    return [...yearsSet].sort();
+  }, [groupedData]);
 
-  // Template for row expansion
+  const grandTotal = groupedData.reduce(
+    (acc, { details }) =>
+      acc +
+      details.reduce(
+        (descAcc, { years }) =>
+          descAcc +
+          Object.values(years).reduce((yearAcc, total) => yearAcc + total, 0),
+        0
+      ),
+    0
+  );
+  const renderYearColumns = () => {
+    return allYears.map((year) => (
+      <Column
+        key={year}
+        field={year}
+        header={year}
+        body={({ details }) => {
+          const total = details.reduce(
+            (acc, { years }) => acc + (years[year] || 0),
+            0
+          );
+          return (
+            <div className="p-2">
+              {total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR"}
+            </div>
+          );
+        }}
+      />
+    ));
+  };
+
   const rowExpansionTemplate = ({ details }) => (
-    <DataTable value={details} tableStyle={{ minWidth: "50rem" }} showGridlines>
-      <Column
-        field="description"
-        header="Description"
-        style={{ width: "25rem" }}
-      />
-      <Column
-        field="total"
-        header="Total Cost"
-        body={(row) =>
-          row.total > 0 ? `${row.total.toFixed(2)} EUR` : "0 EUR"
-        }
-      />
+    <DataTable
+      value={details}
+      tableStyle={{ minWidth: "90rem" }}
+      header={false}
+    >
+      <Column />
+      <Column field="description" header="Description" />
+      {allYears.map((year) => (
+        <Column
+          key={year}
+          field={year}
+          header={year}
+          body={(rowData) => {
+            const total = rowData.years[year] || 0;
+            return total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR";
+          }}
+        />
+      ))}
     </DataTable>
   );
 
@@ -74,15 +123,10 @@ const Table = ({ result }) => {
         onRowToggle={(e) => setExpandedRows(e.data)}
         rowExpansionTemplate={rowExpansionTemplate}
         dataKey="label"
-        tableStyle={{ minWidth: "50rem" }}
       >
-        <Column expander style={{ width: "3rem" }} />
-        <Column field="label" header="Cost Type" style={{ width: "22rem" }} />
-        <Column
-          field="value"
-          header="Total Cost"
-          body={({ value }) => `${value.toFixed(2)} EUR`}
-        />
+        <Column expander style={{ width: "10px" }} />
+        <Column field="label" header="Cost Type" sty />
+        {renderYearColumns()}
       </DataTable>
       <div style={{ textAlign: "right", padding: "1rem", fontWeight: "bold" }}>
         Grand Total: {grandTotal.toFixed(2)} EUR
@@ -90,7 +134,6 @@ const Table = ({ result }) => {
     </div>
   );
 };
-
 export async function getServerSideProps() {
   try {
     const {
