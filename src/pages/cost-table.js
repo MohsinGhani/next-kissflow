@@ -61,17 +61,36 @@ const Table = ({ result }) => {
     return [...yearsSet].sort();
   }, [groupedData]);
 
-  const grandTotal = groupedData.reduce(
-    (acc, { details }) =>
-      acc +
-      details.reduce(
-        (descAcc, { years }) =>
-          descAcc +
-          Object.values(years).reduce((yearAcc, total) => yearAcc + total, 0),
+  const yearTotals = useMemo(() => {
+    const totals = {};
+    allYears.forEach((year) => {
+      totals[year] = groupedData.reduce(
+        (acc, { details }) =>
+          acc +
+          details.reduce(
+            (descAcc, { years }) => descAcc + (years[year] || 0),
+            0
+          ),
         0
-      ),
-    0
-  );
+      );
+    });
+    return totals;
+  }, [groupedData, allYears]);
+
+  const grandTotal = useMemo(() => {
+    return groupedData.reduce(
+      (acc, { details }) =>
+        acc +
+        details.reduce(
+          (descAcc, { years }) =>
+            descAcc +
+            Object.values(years).reduce((yearAcc, total) => yearAcc + total, 0),
+          0
+        ),
+      0
+    );
+  }, [groupedData]);
+
   const renderYearColumns = () => {
     return allYears.map((year) => (
       <Column
@@ -105,7 +124,7 @@ const Table = ({ result }) => {
         <Column
           key={year}
           field={year}
-          header={year}
+          // header={year}
           body={(rowData) => {
             const total = rowData.years[year] || 0;
             return total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR";
@@ -125,7 +144,7 @@ const Table = ({ result }) => {
         dataKey="label"
       >
         <Column expander style={{ width: "10px" }} />
-        <Column field="label" header="Cost Type" sty />
+        <Column field="label" header="Cost Type" />
         {renderYearColumns()}
       </DataTable>
       <div style={{ textAlign: "right", padding: "1rem", fontWeight: "bold" }}>
@@ -134,6 +153,7 @@ const Table = ({ result }) => {
     </div>
   );
 };
+
 export async function getServerSideProps() {
   try {
     const {
