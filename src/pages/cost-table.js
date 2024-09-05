@@ -103,9 +103,7 @@ const Table = ({ result }) => {
       return newSet;
     });
   };
-
-  const columnWidth = "160px";
-
+  const columnWidth = { width: "140px" };
   const renderYearColumns = () =>
     allYears.map((year) => (
       <Column
@@ -128,7 +126,7 @@ const Table = ({ result }) => {
           const total = years[year]?.total || 0;
           return total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR";
         }}
-        style={{ width: columnWidth }}
+        style={columnWidth}
       />
     ));
 
@@ -157,7 +155,7 @@ const Table = ({ result }) => {
           );
           return total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR";
         }}
-        style={{ width: columnWidth }}
+        style={columnWidth}
       />
     ));
 
@@ -175,10 +173,31 @@ const Table = ({ result }) => {
             const total = years[year].quarters[quarter] || 0;
             return total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR";
           }}
-          style={{ width: columnWidth }}
+          style={columnWidth}
         />
       ))
     );
+  const renderTotalQuarterColumns = () => {
+    return Array.from(expandedYears).flatMap((year) =>
+      ["Q1", "Q2", "Q3", "Q4"].map((quarter) => (
+        <Column
+          key={`${year}-${quarter}`}
+          field={`${year}-${quarter}`}
+          header={` ${quarter}`}
+          body={({ details }) => {
+            if (!Array.isArray(details)) {
+              return <div>0 EUR</div>;
+            }
+            const total = details.reduce(
+              (acc, { years }) => acc + (years[year]?.quarters[quarter] || 0),
+              0
+            );
+            return total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR";
+          }}
+        />
+      ))
+    );
+  };
 
   const getColumnComponents = () => {
     const yearColumns = renderYearColumns();
@@ -197,7 +216,7 @@ const Table = ({ result }) => {
 
   const getTotalColumnComponents = () => {
     const yearColumns = renderTotalYearColumns();
-    const quarterColumns = renderQuarterColumns();
+    const quarterColumns = renderTotalQuarterColumns();
 
     return yearColumns
       .map((col) => {
@@ -211,13 +230,9 @@ const Table = ({ result }) => {
   };
 
   const rowExpansionTemplate = ({ details }) => (
-    <DataTable value={details} className="hide-header">
+    <DataTable value={details} className="hide-header ">
       <Column style={{ width: "4rem" }} />
-      <Column
-        field="description"
-        header={false}
-        style={{ width: columnWidth }}
-      />
+      <Column field="description" header={false} style={columnWidth} />
       {getColumnComponents()}
     </DataTable>
   );
@@ -232,16 +247,13 @@ const Table = ({ result }) => {
         dataKey="label"
       >
         <Column expander style={{ width: "3rem" }} />
-        <Column
-          field="label"
-          header="Cost Type"
-          style={{ width: columnWidth }}
-        />
+        <Column field="label" header="Cost Type" style={columnWidth} />
         {getTotalColumnComponents()}
       </DataTable>
     </div>
   );
 };
+
 export async function getServerSideProps() {
   try {
     const {
