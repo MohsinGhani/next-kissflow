@@ -57,16 +57,53 @@ const createGroupedData = (result, quarterMapping) => {
   );
   const itemCost = groupCosts(result, "Estimated_Item_Cost", quarterMapping);
 
+  // Function to calculate the total costs across all categories
+  const calculateTotalCosts = () => {
+    const allCosts = [laborCost, toolCost, serviceCost, itemCost];
+    const totalCosts = {};
+
+    allCosts.forEach((costGroup) => {
+      Object.keys(costGroup).forEach((description) => {
+        if (!totalCosts[description]) {
+          totalCosts[description] = { description, years: {} };
+        }
+
+        Object.keys(costGroup[description].years).forEach((year) => {
+          if (!totalCosts[description].years[year]) {
+            totalCosts[description].years[year] = { total: 0, quarters: {} };
+          }
+
+          totalCosts[description].years[year].total +=
+            costGroup[description].years[year].total;
+
+          Object.keys(costGroup[description].years[year].quarters).forEach(
+            (quarter) => {
+              if (!totalCosts[description].years[year].quarters[quarter]) {
+                totalCosts[description].years[year].quarters[quarter] = 0;
+              }
+
+              totalCosts[description].years[year].quarters[quarter] +=
+                costGroup[description].years[year].quarters[quarter];
+            }
+          );
+        });
+      });
+    });
+
+    return totalCosts;
+  };
+
   const createGroup = (label, details) => ({
     label,
     details: Object.values(details),
   });
 
   return [
-    createGroup("Labor Costs", laborCost),
-    createGroup("Tool Costs", toolCost),
-    createGroup("Service Costs", serviceCost),
-    createGroup("Item Costs", itemCost),
+    createGroup("Labor Cost", laborCost),
+    createGroup("Tool Cost", toolCost),
+    createGroup("Service Cost", serviceCost),
+    createGroup("Item Cost", itemCost),
+    createGroup("Total Cost ", calculateTotalCosts()),
   ];
 };
 
@@ -248,6 +285,7 @@ const Table = ({ result }) => {
       >
         <Column expander style={{ width: "3rem" }} />
         <Column field="label" header="Cost Type" style={columnWidth} />
+
         {getTotalColumnComponents()}
       </DataTable>
     </div>
