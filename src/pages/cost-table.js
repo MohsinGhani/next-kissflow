@@ -57,7 +57,6 @@ const createGroupedData = (result, quarterMapping) => {
   );
   const itemCost = groupCosts(result, "Estimated_Item_Cost", quarterMapping);
 
-  // Function to calculate the total costs across all categories
   const calculateTotalCosts = () => {
     const allCosts = [laborCost, toolCost, serviceCost, itemCost];
     const totalCosts = {};
@@ -163,7 +162,7 @@ const Table = ({ result }) => {
           const total = years[year]?.total || 0;
           return total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR";
         }}
-        style={columnWidth}
+        className="table-field-style"
       />
     ));
 
@@ -192,7 +191,7 @@ const Table = ({ result }) => {
           );
           return total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR";
         }}
-        style={columnWidth}
+        className="table-field-style"
       />
     ));
 
@@ -210,7 +209,7 @@ const Table = ({ result }) => {
             const total = years[year].quarters[quarter] || 0;
             return total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR";
           }}
-          style={columnWidth}
+          className="table-field-style"
         />
       ))
     );
@@ -221,6 +220,7 @@ const Table = ({ result }) => {
           key={`${year}-${quarter}`}
           field={`${year}-${quarter}`}
           header={` ${quarter}`}
+          className="table-field-style"
           body={({ details }) => {
             if (!Array.isArray(details)) {
               return <div>0 EUR</div>;
@@ -269,7 +269,15 @@ const Table = ({ result }) => {
   const rowExpansionTemplate = ({ details }) => (
     <DataTable value={details} className="hide-header ">
       <Column style={{ width: "4rem" }} />
-      <Column field="description" header={false} style={columnWidth} />
+      <Column
+        field="description"
+        header={false}
+        style={{
+          minWidth: "160px",
+          textAlign: "start",
+          fontSize: "17px",
+        }}
+      />
       {getColumnComponents()}
     </DataTable>
   );
@@ -277,6 +285,7 @@ const Table = ({ result }) => {
   return (
     <div className="card m-4 relative overflow-x-auto">
       <DataTable
+        tableStyle={{ minWidth: "120px", maxWidth: "auto" }}
         value={groupedData}
         expandedRows={expandedRows}
         onRowToggle={(e) => setExpandedRows(e.data)}
@@ -284,7 +293,15 @@ const Table = ({ result }) => {
         dataKey="label"
       >
         <Column expander style={{ width: "3rem" }} />
-        <Column field="label" header="Cost Type" style={columnWidth} />
+        <Column
+          field="label"
+          header="Cost Type"
+          style={{
+            minWidth: "145px",
+            textAlign: "start",
+            fontSize: "17px",
+          }}
+        />
 
         {getTotalColumnComponents()}
       </DataTable>
