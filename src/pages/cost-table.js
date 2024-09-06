@@ -16,8 +16,8 @@ const useQuarterMapping = () =>
     []
   );
 
-const groupCosts = (result, cost, quarterMapping) =>
-  result.Data.reduce((acc, item) => {
+const groupCosts = (result, cost, quarterMapping) => {
+  return result.Data.reduce((acc, item) => {
     const description = item.Loco_Description || "Unknown";
     const date = item.Next_Due_Date;
     if (date && typeof date === "string") {
@@ -37,15 +37,22 @@ const groupCosts = (result, cost, quarterMapping) =>
       }
 
       if (!acc[description].years[year].quarters[quarter]) {
-        acc[description].years[year].quarters[quarter] = 0;
+        acc[description].years[year].quarters[quarter] = {
+          total: 0,
+          months: {},
+        };
       }
 
       acc[description].years[year].total += costValue;
-      acc[description].years[year].quarters[quarter] += costValue;
+      acc[description].years[year].quarters[quarter].total += costValue;
+      acc[description].years[year].quarters[quarter].months[month] =
+        (acc[description].years[year].quarters[quarter].months[month] || 0) +
+        costValue;
     }
 
     return acc;
   }, {});
+};
 
 const createGroupedData = (result, quarterMapping) => {
   const laborCost = groupCosts(result, "Estimated_Labor_Cost", quarterMapping);
@@ -78,11 +85,14 @@ const createGroupedData = (result, quarterMapping) => {
           Object.keys(costGroup[description].years[year].quarters).forEach(
             (quarter) => {
               if (!totalCosts[description].years[year].quarters[quarter]) {
-                totalCosts[description].years[year].quarters[quarter] = 0;
+                totalCosts[description].years[year].quarters[quarter] = {
+                  total: 0,
+                  months: {},
+                };
               }
 
-              totalCosts[description].years[year].quarters[quarter] +=
-                costGroup[description].years[year].quarters[quarter];
+              totalCosts[description].years[year].quarters[quarter].total +=
+                costGroup[description].years[year].quarters[quarter].total;
             }
           );
         });
@@ -94,7 +104,7 @@ const createGroupedData = (result, quarterMapping) => {
 
   const createGroup = (label, details) => ({
     label,
-    details: Object.values(details),
+    details: Object.values(details ?? {}),
   });
 
   return [
@@ -102,7 +112,7 @@ const createGroupedData = (result, quarterMapping) => {
     createGroup("Tool Cost", toolCost),
     createGroup("Service Cost", serviceCost),
     createGroup("Item Cost", itemCost),
-    createGroup("Total Cost ", calculateTotalCosts()),
+    createGroup("Total Cost", calculateTotalCosts()),
   ];
 };
 
@@ -118,9 +128,10 @@ const useAllYears = (groupedData) =>
   }, [groupedData]);
 
 const Table = ({ result }) => {
+  console.log(result, "res");
   const [expandedRows, setExpandedRows] = useState([]);
   const [expandedYears, setExpandedYears] = useState(new Set());
-
+  const [expandedQuarters, setExpandedQuarters] = useState(new Set());
   const quarterMapping = useQuarterMapping();
   const groupedData = useMemo(
     () => createGroupedData(result, quarterMapping),
@@ -139,33 +150,6 @@ const Table = ({ result }) => {
       return newSet;
     });
   };
-  const columnWidth = { width: "140px" };
-  const renderYearColumns = () =>
-    allYears.map((year) => (
-      <Column
-        key={year}
-        field={year}
-        header={
-          <div>
-            <button
-              className="btn-quarter-toggle"
-              onClick={() => handleYearToggle(year)}
-            >
-              {year}
-            </button>
-          </div>
-        }
-        body={({ years }) => {
-          if (!years || !years[year]) {
-            return "0 EUR";
-          }
-          const total = years[year]?.total || 0;
-          return total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR";
-        }}
-        className="table-field-style"
-      />
-    ));
-
   const renderTotalYearColumns = () =>
     allYears.map((year) => (
       <Column
@@ -194,6 +178,159 @@ const Table = ({ result }) => {
         className="table-field-style"
       />
     ));
+  const renderTotalQuarterColumns = () =>
+    Array.from(expandedYears).flatMap((year) =>
+      ["Q1", "Q2", "Q3", "Q4"].map((quarter) => (
+        <Column
+          key={`${year}-${quarter}`}
+          field={`${year}-${quarter}`}
+          header={
+            <div>
+              <button
+                className="btn-quarter-toggle"
+                onClick={() => handleQuarterToggle(year, quarter)}
+              >
+                {quarter}
+              </button>
+            </div>
+          }
+          body={({ details }) => {
+            if (!Array.isArray(details)) {
+              return <div>0 EUR</div>;
+            }
+            const total = details.reduce(
+              (acc, { years }) =>
+                acc + (years[year]?.quarters[quarter]?.total || 0),
+              0
+            );
+            return total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR";
+          }}
+          className="table-field-style"
+        />
+      ))
+    );
+
+  const renderTotalMonthColumns = () =>
+    Array.from(expandedQuarters).flatMap((key) => {
+      const [year, quarter] = key.split("-");
+      return quarterMapping[quarter].map((month) => (
+        <Column
+          key={`${year}-${quarter}-${month}`}
+          field={`${year}-${quarter}-${month}`}
+          header={month}
+          body={({ details }) => {
+            if (!details || !Array.isArray(details)) {
+              return "0 EUR";
+            }
+            const monthlyCost = details.reduce(
+              (acc, { years }) =>
+                acc + (years[year]?.quarters[quarter]?.months[month] || 0),
+              0
+            );
+            return monthlyCost > 0 ? `${monthlyCost.toFixed(2)} EUR` : "0 EUR";
+          }}
+          className="table-field-style"
+        />
+      ));
+    });
+
+  const getTotalColumnComponents = () => {
+    const yearColumns = renderTotalYearColumns();
+    const quarterColumns = renderTotalQuarterColumns();
+    const monthColumns = renderTotalMonthColumns();
+
+    return yearColumns
+      .map((col) => {
+        const year = col.key;
+        const relatedQuarterColumns = quarterColumns.filter((qCol) =>
+          qCol.key.startsWith(`${year}-`)
+        );
+        const relatedMonthColumns = monthColumns.filter((mCol) => {
+          const [colYear, colQuarter] = mCol.key.split("-").slice(0, 2);
+          return (
+            colYear === year &&
+            relatedQuarterColumns.some(
+              (qCol) => qCol.key === `${colYear}-${colQuarter}`
+            )
+          );
+        });
+
+        return [
+          col,
+          ...relatedQuarterColumns
+            .map((qCol) => {
+              return [
+                qCol,
+                ...relatedMonthColumns.filter((mCol) =>
+                  mCol.key.startsWith(qCol.key)
+                ),
+              ];
+            })
+            .flat(),
+        ];
+      })
+      .flat();
+  };
+
+  const handleQuarterToggle = (year, quarter) => {
+    const key = `${year}-${quarter}`;
+    setExpandedQuarters((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(key)) {
+        newSet.delete(key);
+      } else {
+        newSet.add(key);
+      }
+      return newSet;
+    });
+  };
+
+  const renderYearColumns = () =>
+    allYears.map((year) => (
+      <Column
+        key={year}
+        field={year}
+        header={
+          <div>
+            <button
+              className="btn-year-toggle"
+              onClick={() => handleYearToggle(year)}
+            >
+              {year}
+            </button>
+          </div>
+        }
+        body={({ years }) => {
+          if (!years || !years[year]) {
+            return "0 EUR";
+          }
+          const total = years[year]?.total || 0;
+          return total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR";
+        }}
+        className="table-field-style"
+      />
+    ));
+
+  const renderMonthColumns = () =>
+    Array.from(expandedQuarters).flatMap((key) => {
+      const [year, quarter] = key.split("-");
+      return quarterMapping[quarter].map((month) => (
+        <Column
+          key={`${year}-${quarter}-${month}`}
+          field={`${year}-${quarter}-${month}`}
+          header={month}
+          body={({ years }) => {
+            if (!years || !years[year] || !years[year].quarters[quarter]) {
+              return "0 EUR";
+            }
+            const monthlyCost =
+              years[year].quarters[quarter].months[month] || 0;
+            return monthlyCost > 0 ? `${monthlyCost.toFixed(2)} EUR` : "0 EUR";
+          }}
+          className="table-field-style"
+        />
+      ));
+    });
 
   const renderQuarterColumns = () =>
     Array.from(expandedYears).flatMap((year) =>
@@ -201,79 +338,75 @@ const Table = ({ result }) => {
         <Column
           key={`${year}-${quarter}`}
           field={`${year}-${quarter}`}
-          header={` ${quarter}`}
+          header={
+            <div>
+              <button
+                className="btn-quarter-toggle"
+                onClick={() => handleQuarterToggle(year, quarter)}
+              >
+                {quarter}
+              </button>
+            </div>
+          }
           body={({ years }) => {
             if (!years || !years[year] || !years[year].quarters) {
               return "0 EUR";
             }
-            const total = years[year].quarters[quarter] || 0;
+            const total = years[year].quarters[quarter]?.total || 0;
             return total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR";
           }}
           className="table-field-style"
         />
       ))
     );
-  const renderTotalQuarterColumns = () => {
-    return Array.from(expandedYears).flatMap((year) =>
-      ["Q1", "Q2", "Q3", "Q4"].map((quarter) => (
-        <Column
-          key={`${year}-${quarter}`}
-          field={`${year}-${quarter}`}
-          header={` ${quarter}`}
-          className="table-field-style"
-          body={({ details }) => {
-            if (!Array.isArray(details)) {
-              return <div>0 EUR</div>;
-            }
-            const total = details.reduce(
-              (acc, { years }) => acc + (years[year]?.quarters[quarter] || 0),
-              0
-            );
-            return total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR";
-          }}
-        />
-      ))
-    );
-  };
-
   const getColumnComponents = () => {
     const yearColumns = renderYearColumns();
     const quarterColumns = renderQuarterColumns();
+    const monthColumns = renderMonthColumns();
 
     return yearColumns
       .map((col) => {
         const year = col.key;
+
+        const relatedQuarterColumns = quarterColumns.filter((qCol) =>
+          qCol.key.startsWith(`${year}-`)
+        );
+
+        const monthColumnsForYear = relatedQuarterColumns.flatMap((qCol) => {
+          const quarter = qCol.key.split("-")[1];
+          return monthColumns.filter((mCol) =>
+            mCol.key.startsWith(`${year}-${quarter}-`)
+          );
+        });
+
         return [
           col,
-          ...quarterColumns.filter((qCol) => qCol.key.startsWith(`${year}-`)),
-        ];
-      })
-      .flat();
-  };
-
-  const getTotalColumnComponents = () => {
-    const yearColumns = renderTotalYearColumns();
-    const quarterColumns = renderTotalQuarterColumns();
-
-    return yearColumns
-      .map((col) => {
-        const year = col.key;
-        return [
-          col,
-          ...quarterColumns.filter((qCol) => qCol.key.startsWith(`${year}-`)),
+          ...relatedQuarterColumns
+            .map((qCol) => {
+              const relatedMonthColumns = monthColumns.filter((mCol) =>
+                mCol.key.startsWith(qCol.key)
+              );
+              return [qCol, ...relatedMonthColumns];
+            })
+            .flat(),
+          ...monthColumnsForYear,
         ];
       })
       .flat();
   };
 
   const rowExpansionTemplate = ({ details }) => (
-    <DataTable value={details} className="hide-header ">
-      <Column style={{ width: "4rem" }} />
+    <DataTable
+      value={details}
+      className="hide-header "
+      tableStyle={{ minWidth: "120px", maxWidth: "auto" }}
+    >
+      <Column style={{ width: "3rem" }} />
       <Column
         field="description"
         header={false}
         style={{
-          minWidth: "160px",
+          minWidth: "140px",
           textAlign: "start",
           fontSize: "17px",
         }}
@@ -308,37 +441,39 @@ const Table = ({ result }) => {
     </div>
   );
 };
-
 export async function getServerSideProps() {
   try {
-    const {
-      NEXT_PUBLIC_BASE_URL: baseURL,
-      NEXT_PUBLIC_ACCOUNT_ID: accountId,
-      NEXT_PUBLIC_FORM_ID: formId,
-      NEXT_PUBLIC_ACCESS_KEY_ID: accessKeyId,
-      NEXT_PUBLIC_ACCESS_KEY_SECRET: accessKeySecret,
-    } = process.env;
+    const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
+    const accountId = process.env.NEXT_PUBLIC_ACCOUNT_ID;
+    const formId = process.env.NEXT_PUBLIC_FORM_ID;
 
     const response = await fetch(
       `${baseURL}/form/2/${accountId}/${formId}/list?page_size=100`,
       {
         method: "GET",
         headers: {
-          "X-Access-Key-Id": accessKeyId,
-          "X-Access-Key-Secret": accessKeySecret,
+          "X-Access-Key-Id": process.env.NEXT_PUBLIC_ACCESS_KEY_ID,
+          "X-Access-Key-Secret": process.env.NEXT_PUBLIC_ACCESS_KEY_SECRET,
           accept: "application/json",
         },
       }
     );
 
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
     const result = await response.json();
-    return { props: { result } };
+
+    return {
+      props: { result },
+    };
   } catch (error) {
-    console.error("Failed to fetch data:", error);
-    return { props: { result: { Data: [] } } };
+    console.log("Failed to fetch KissFlow API data:", error);
+
+    return {
+      props: { result: { Data: [] } },
+    };
   }
 }
-
 export default Table;
