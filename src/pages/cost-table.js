@@ -8,51 +8,56 @@ import "primeicons/primeicons.css";
 const useQuarterMapping = () =>
   useMemo(
     () => ({
-      Q1: ["01", "02", "03"],
-      Q2: ["04", "05", "06"],
-      Q3: ["07", "08", "09"],
-      Q4: ["10", "11", "12"],
+      Q1: ["January", "February", "March"],
+      Q2: ["April", "May", "June"],
+      Q3: ["July", "August", "September"],
+      Q4: ["October", "November", "December"],
     }),
     []
   );
 
-const groupCosts = (result, cost, quarterMapping) => {
-  return result.Data.reduce((acc, item) => {
-    const description = item.Loco_Description || "Unknown";
-    const date = item.Next_Due_Date;
-    if (date && typeof date === "string") {
-      const [year, month] = date.split("-");
-      const quarter = Object.keys(quarterMapping).find((q) =>
-        quarterMapping[q].includes(month)
-      );
-      const costValue =
-        parseFloat(item[cost]?.replace(" EUR", "").replace(",", ".")) || 0;
-
-      if (!acc[description]) {
-        acc[description] = { description, years: {} };
+const groupCosts = (result, cost, quarterMapping) =>
+  result.Data.reduce(
+    (
+      acc,
+      {
+        Loco_Description: description = "Unknown",
+        Next_Due_Date: date,
+        [cost]: costValue,
       }
+    ) => {
+      if (date && typeof date === "string") {
+        const [year, month] = date.split("-");
+        const monthName = new Date(`${year}-${month}-01`).toLocaleString(
+          "default",
+          { month: "long" }
+        );
+        const quarter = Object.keys(quarterMapping).find((q) =>
+          quarterMapping[q].includes(monthName)
+        );
+        const value =
+          parseFloat(costValue?.replace(" EUR", "").replace(",", ".")) || 0;
 
-      if (!acc[description].years[year]) {
-        acc[description].years[year] = { total: 0, quarters: {} };
-      }
-
-      if (!acc[description].years[year].quarters[quarter]) {
-        acc[description].years[year].quarters[quarter] = {
+        acc[description] = acc[description] || { description, years: {} };
+        acc[description].years[year] = acc[description].years[year] || {
           total: 0,
-          months: {},
+          quarters: {},
         };
+        acc[description].years[year].quarters[quarter] = acc[description].years[
+          year
+        ].quarters[quarter] || { total: 0, months: {} };
+
+        acc[description].years[year].total += value;
+        acc[description].years[year].quarters[quarter].total += value;
+        acc[description].years[year].quarters[quarter].months[monthName] =
+          (acc[description].years[year].quarters[quarter].months[monthName] ||
+            0) + value;
       }
 
-      acc[description].years[year].total += costValue;
-      acc[description].years[year].quarters[quarter].total += costValue;
-      acc[description].years[year].quarters[quarter].months[month] =
-        (acc[description].years[year].quarters[quarter].months[month] || 0) +
-        costValue;
-    }
-
-    return acc;
-  }, {});
-};
+      return acc;
+    },
+    {}
+  );
 
 const createGroupedData = (result, quarterMapping) => {
   const laborCost = groupCosts(result, "Estimated_Labor_Cost", quarterMapping);
@@ -115,17 +120,18 @@ const createGroupedData = (result, quarterMapping) => {
     createGroup("Total Cost", calculateTotalCosts()),
   ];
 };
-
 const useAllYears = (groupedData) =>
-  useMemo(() => {
-    const yearsSet = new Set();
-    groupedData.forEach(({ details }) =>
-      details.forEach(({ years }) =>
-        Object.keys(years).forEach((year) => yearsSet.add(year))
-      )
-    );
-    return [...yearsSet].sort();
-  }, [groupedData]);
+  useMemo(
+    () =>
+      [
+        ...new Set(
+          groupedData.flatMap(({ details }) =>
+            details.flatMap(({ years }) => Object.keys(years))
+          )
+        ),
+      ].sort(),
+    [groupedData]
+  );
 
 const Table = ({ result }) => {
   console.log(result, "res");
@@ -213,18 +219,18 @@ const Table = ({ result }) => {
   const renderTotalMonthColumns = () =>
     Array.from(expandedQuarters).flatMap((key) => {
       const [year, quarter] = key.split("-");
-      return quarterMapping[quarter].map((month) => (
+      return quarterMapping[quarter].map((monthName) => (
         <Column
-          key={`${year}-${quarter}-${month}`}
-          field={`${year}-${quarter}-${month}`}
-          header={month}
+          key={`${year}-${quarter}-${monthName}`}
+          field={`${year}-${quarter}-${monthName}`}
+          header={monthName}
           body={({ details }) => {
             if (!details || !Array.isArray(details)) {
               return "0 EUR";
             }
             const monthlyCost = details.reduce(
               (acc, { years }) =>
-                acc + (years[year]?.quarters[quarter]?.months[month] || 0),
+                acc + (years[year]?.quarters[quarter]?.months[monthName] || 0),
               0
             );
             return monthlyCost > 0 ? `${monthlyCost.toFixed(2)} EUR` : "0 EUR";
@@ -233,6 +239,7 @@ const Table = ({ result }) => {
         />
       ));
     });
+
   const getTotalColumnComponents = () => {
     const yearColumns = renderTotalYearColumns();
     const quarterColumns = renderTotalQuarterColumns();
@@ -352,46 +359,30 @@ const Table = ({ result }) => {
     const quarterColumns = renderQuarterColumns();
     const monthColumns = renderMonthColumns();
 
-    return yearColumns
-      .map((col) => {
-        const year = col.key;
+    return yearColumns.flatMap((yearColumn) => {
+      const year = yearColumn.key;
 
-        const relatedQuarterColumns = quarterColumns.filter((qCol) =>
-          qCol.key.startsWith(`${year}-`)
-        );
+      const relatedQuarterColumns = quarterColumns.filter((qCol) =>
+        qCol.key.startsWith(`${year}-`)
+      );
 
-        const monthColumnsForYear = relatedQuarterColumns.flatMap((qCol) => {
-          const quarter = qCol.key.split("-")[1];
-          return monthColumns.filter((mCol) =>
+      return [
+        yearColumn,
+        ...relatedQuarterColumns.flatMap((quarterColumn) => {
+          const quarter = quarterColumn.key.split("-")[1];
+
+          const relatedMonthColumns = monthColumns.filter((mCol) =>
             mCol.key.startsWith(`${year}-${quarter}-`)
           );
-        });
 
-        return [
-          col,
-          ...relatedQuarterColumns
-            .map((qCol) => {
-              const relatedMonthColumns = monthColumns.filter((mCol) =>
-                mCol.key.startsWith(qCol.key)
-              );
-              return [qCol, ...relatedMonthColumns];
-            })
-            .flat(),
-          ...monthColumnsForYear,
-        ];
-      })
-      .flat();
+          return [quarterColumn, ...relatedMonthColumns];
+        }),
+      ];
+    });
   };
 
   const rowExpansionTemplate = ({ details }) => (
-    <DataTable
-      value={details}
-      className="hide-header "
-      tableStyle={{
-        minWidth: "120px",
-        width: "auto",
-      }}
-    >
+    <DataTable value={details} className="hide-header">
       <Column />
       <Column
         field="description"
@@ -405,7 +396,7 @@ const Table = ({ result }) => {
   );
 
   return (
-    <div className="card m-4 relative overflow-x-auto">
+    <div className="card m-4 ">
       <DataTable
         tableStyle={{
           minWidth: "120px",
