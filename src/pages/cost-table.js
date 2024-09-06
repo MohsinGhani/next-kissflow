@@ -8,10 +8,10 @@ import "primeicons/primeicons.css";
 const useQuarterMapping = () =>
   useMemo(
     () => ({
-      Q1: ["January", "February", "March"],
-      Q2: ["April", "May", "June"],
-      Q3: ["July", "August", "September"],
-      Q4: ["October", "November", "December"],
+      Q1: ["01", "02", "03"],
+      Q2: ["04", "05", "06"],
+      Q3: ["07", "08", "09"],
+      Q4: ["10", "11", "12"],
     }),
     []
   );
