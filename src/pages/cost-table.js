@@ -15,9 +15,8 @@ const useQuarterMapping = () =>
     }),
     []
   );
-
-const groupCosts = (result, cost, quarterMapping) =>
-  result.Data.reduce(
+const groupCosts = (result, cost, quarterMapping) => {
+  return result.Data.reduce(
     (
       acc,
       {
@@ -53,11 +52,11 @@ const groupCosts = (result, cost, quarterMapping) =>
           (acc[description].years[year].quarters[quarter].months[monthName] ||
             0) + value;
       }
-
       return acc;
     },
     {}
   );
+};
 
 const createGroupedData = (result, quarterMapping) => {
   const laborCost = groupCosts(result, "Estimated_Labor_Cost", quarterMapping);
@@ -98,12 +97,31 @@ const createGroupedData = (result, quarterMapping) => {
 
               totalCosts[description].years[year].quarters[quarter].total +=
                 costGroup[description].years[year].quarters[quarter].total;
+
+              Object.keys(
+                costGroup[description].years[year].quarters[quarter].months
+              ).forEach((month) => {
+                if (
+                  !totalCosts[description].years[year].quarters[quarter].months[
+                    month
+                  ]
+                ) {
+                  totalCosts[description].years[year].quarters[quarter].months[
+                    month
+                  ] = 0;
+                }
+                totalCosts[description].years[year].quarters[quarter].months[
+                  month
+                ] +=
+                  costGroup[description].years[year].quarters[quarter].months[
+                    month
+                  ];
+              });
             }
           );
         });
       });
     });
-
     return totalCosts;
   };
 
@@ -120,6 +138,7 @@ const createGroupedData = (result, quarterMapping) => {
     createGroup("Total Cost", calculateTotalCosts()),
   ];
 };
+
 const useAllYears = (groupedData) =>
   useMemo(
     () =>
@@ -134,7 +153,6 @@ const useAllYears = (groupedData) =>
   );
 
 const Table = ({ result }) => {
-  console.log(result, "res");
   const [expandedRows, setExpandedRows] = useState([]);
   const [expandedYears, setExpandedYears] = useState(new Set());
   const [expandedQuarters, setExpandedQuarters] = useState(new Set());
@@ -228,11 +246,18 @@ const Table = ({ result }) => {
             if (!details || !Array.isArray(details)) {
               return "0 EUR";
             }
-            const monthlyCost = details.reduce(
-              (acc, { years }) =>
-                acc + (years[year]?.quarters[quarter]?.months[monthName] || 0),
-              0
-            );
+
+            const monthlyCost = details.reduce((acc, { years }) => {
+              if (
+                years[year] &&
+                years[year].quarters[quarter] &&
+                years[year].quarters[quarter].months[monthName]
+              ) {
+                return acc + years[year].quarters[quarter].months[monthName];
+              }
+              return acc;
+            }, 0);
+
             return monthlyCost > 0 ? `${monthlyCost.toFixed(2)} EUR` : "0 EUR";
           }}
           className="table-field-style"
