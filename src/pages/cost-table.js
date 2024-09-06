@@ -8,10 +8,10 @@ import "primeicons/primeicons.css";
 const useQuarterMapping = () =>
   useMemo(
     () => ({
-      Q1: ["01", "02", "03"],
-      Q2: ["04", "05", "06"],
-      Q3: ["07", "08", "09"],
-      Q4: ["10", "11", "12"],
+      Q1: ["January", "February", "March"],
+      Q2: ["April", "May", "June"],
+      Q3: ["July", "August", "September"],
+      Q4: ["October", "November", "December"],
     }),
     []
   );
@@ -233,43 +233,31 @@ const Table = ({ result }) => {
         />
       ));
     });
-
   const getTotalColumnComponents = () => {
     const yearColumns = renderTotalYearColumns();
     const quarterColumns = renderTotalQuarterColumns();
     const monthColumns = renderTotalMonthColumns();
 
-    return yearColumns
-      .map((col) => {
-        const year = col.key;
-        const relatedQuarterColumns = quarterColumns.filter((qCol) =>
-          qCol.key.startsWith(`${year}-`)
-        );
-        const relatedMonthColumns = monthColumns.filter((mCol) => {
-          const [colYear, colQuarter] = mCol.key.split("-").slice(0, 2);
-          return (
-            colYear === year &&
-            relatedQuarterColumns.some(
-              (qCol) => qCol.key === `${colYear}-${colQuarter}`
-            )
-          );
-        });
+    return yearColumns.flatMap((yearColumn) => {
+      const year = yearColumn.key;
 
-        return [
-          col,
-          ...relatedQuarterColumns
-            .map((qCol) => {
-              return [
-                qCol,
-                ...relatedMonthColumns.filter((mCol) =>
-                  mCol.key.startsWith(qCol.key)
-                ),
-              ];
-            })
-            .flat(),
-        ];
-      })
-      .flat();
+      const relatedQuarterColumns = quarterColumns.filter((qCol) =>
+        qCol.key.startsWith(`${year}-`)
+      );
+
+      return [
+        yearColumn,
+        ...relatedQuarterColumns.flatMap((quarterColumn) => {
+          const quarter = quarterColumn.key.split("-")[1];
+
+          const relatedMonthColumns = monthColumns.filter((mCol) =>
+            mCol.key.startsWith(`${year}-${quarter}-`)
+          );
+
+          return [quarterColumn, ...relatedMonthColumns];
+        }),
+      ];
+    });
   };
 
   const handleQuarterToggle = (year, quarter) => {
@@ -399,16 +387,17 @@ const Table = ({ result }) => {
     <DataTable
       value={details}
       className="hide-header "
-      tableStyle={{ minWidth: "120px", maxWidth: "auto" }}
+      tableStyle={{
+        minWidth: "120px",
+        width: "auto",
+      }}
     >
-      <Column style={{ width: "3rem" }} />
+      <Column />
       <Column
         field="description"
         header={false}
         style={{
-          minWidth: "140px",
-          textAlign: "start",
-          fontSize: "17px",
+          minWidth: "160px",
         }}
       />
       {getColumnComponents()}
@@ -418,7 +407,10 @@ const Table = ({ result }) => {
   return (
     <div className="card m-4 relative overflow-x-auto">
       <DataTable
-        tableStyle={{ minWidth: "120px", maxWidth: "auto" }}
+        tableStyle={{
+          minWidth: "120px",
+          width: "auto",
+        }}
         value={groupedData}
         expandedRows={expandedRows}
         onRowToggle={(e) => setExpandedRows(e.data)}
@@ -431,11 +423,11 @@ const Table = ({ result }) => {
           header="Cost Type"
           style={{
             minWidth: "145px",
+
             textAlign: "start",
             fontSize: "17px",
           }}
         />
-
         {getTotalColumnComponents()}
       </DataTable>
     </div>
