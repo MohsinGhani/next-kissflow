@@ -207,7 +207,7 @@ export default function Home({ result }) {
     <div className="timeline-container pt-8">
       <div className="w-full fixed flex flex-col justify-center items-center gap-4">
         <div className="w-full flex justify-center items-start gap-4">
-          <div className="w-1/4">
+          <div className="w-1/4 ">
             <FloatLabel>
               <MultiSelect
                 value={selectedLocoNumbers}

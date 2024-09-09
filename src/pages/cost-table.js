@@ -1,10 +1,17 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import "primereact/resources/themes/saga-blue/theme.css";
 import "primereact/resources/primereact.min.css";
 import "primeicons/primeicons.css";
-
+import { MultiSelect } from "primereact/multiselect";
+import { FloatLabel } from "primereact/floatlabel";
+import { Sidebar } from "primereact/sidebar";
+import { Card } from "primereact/card";
+import { IconField } from "primereact/iconfield";
+import { InputIcon } from "primereact/inputicon";
+import { InputText } from "primereact/inputtext";
+import { useRouter } from "next/router";
 const useQuarterMapping = () =>
   useMemo(
     () => ({
@@ -15,58 +22,65 @@ const useQuarterMapping = () =>
     }),
     []
   );
-const groupCosts = (result, cost, quarterMapping) => {
-  return result.Data.reduce(
-    (
-      acc,
-      {
-        Loco_Description: description = "Unknown",
-        Next_Due_Date: date,
-        [cost]: costValue,
-      }
-    ) => {
-      if (date && typeof date === "string") {
-        const [year, month] = date.split("-");
-        const monthName = new Date(`${year}-${month}-01`).toLocaleString(
-          "default",
-          { month: "long" }
-        );
-        const quarter = Object.keys(quarterMapping).find((q) =>
-          quarterMapping[q].includes(monthName)
-        );
-        const value =
-          parseFloat(costValue?.replace(" EUR", "").replace(",", ".")) || 0;
+const groupCosts = (data, costKey, quarterMapping) => {
+  return data.reduce((acc, item) => {
+    const description = item.Loco_Description || "Unknown";
+    const date = item.Next_Due_Date;
+    const costValue = item[costKey];
 
-        acc[description] = acc[description] || { description, years: {} };
-        acc[description].years[year] = acc[description].years[year] || {
-          total: 0,
-          quarters: {},
-        };
-        acc[description].years[year].quarters[quarter] = acc[description].years[
-          year
-        ].quarters[quarter] || { total: 0, months: {} };
+    if (date && typeof date === "string") {
+      const [year, month] = date.split("-");
+      const monthName = new Date(`${year}-${month}-01`).toLocaleString(
+        "default",
+        { month: "long" }
+      );
+      const quarter = Object.keys(quarterMapping).find((q) =>
+        quarterMapping[q].includes(monthName)
+      );
+      const value =
+        parseFloat(costValue?.replace(" EUR", "").replace(",", ".")) || 0;
 
-        acc[description].years[year].total += value;
-        acc[description].years[year].quarters[quarter].total += value;
-        acc[description].years[year].quarters[quarter].months[monthName] =
-          (acc[description].years[year].quarters[quarter].months[monthName] ||
-            0) + value;
-      }
-      return acc;
-    },
-    {}
-  );
+      acc[description] = acc[description] || { description, years: {} };
+      acc[description].years[year] = acc[description].years[year] || {
+        total: 0,
+        quarters: {},
+      };
+      acc[description].years[year].quarters[quarter] = acc[description].years[
+        year
+      ].quarters[quarter] || { total: 0, months: {} };
+
+      acc[description].years[year].total += value;
+      acc[description].years[year].quarters[quarter].total += value;
+      acc[description].years[year].quarters[quarter].months[monthName] =
+        (acc[description].years[year].quarters[quarter].months[monthName] ||
+          0) + value;
+    }
+
+    return acc;
+  }, {});
 };
 
-const createGroupedData = (result, quarterMapping) => {
-  const laborCost = groupCosts(result, "Estimated_Labor_Cost", quarterMapping);
-  const toolCost = groupCosts(result, "Estimated_Tool_Cost", quarterMapping);
+const createGroupedData = (result, quarterMapping, filteredData) => {
+  const laborCost = groupCosts(
+    filteredData,
+    "Estimated_Labor_Cost",
+    quarterMapping
+  );
+  const toolCost = groupCosts(
+    filteredData,
+    "Estimated_Tool_Cost",
+    quarterMapping
+  );
   const serviceCost = groupCosts(
-    result,
+    filteredData,
     "Estimated_Service_Cost",
     quarterMapping
   );
-  const itemCost = groupCosts(result, "Estimated_Item_Cost", quarterMapping);
+  const itemCost = groupCosts(
+    filteredData,
+    "Estimated_Item_Cost",
+    quarterMapping
+  );
 
   const calculateTotalCosts = () => {
     const allCosts = [laborCost, toolCost, serviceCost, itemCost];
@@ -156,12 +170,40 @@ const Table = ({ result }) => {
   const [expandedRows, setExpandedRows] = useState([]);
   const [expandedYears, setExpandedYears] = useState(new Set());
   const [expandedQuarters, setExpandedQuarters] = useState(new Set());
+  const [selectedLocoNumbers, setSelectedLocoNumbers] = useState([]);
+  const [locomotiveNumbers, setLocomotiveNumbers] = useState([]);
+  const [selectedLocoDescription, setSelectedLocoDescription] = useState("");
+  const [visibleRight, setVisibleRight] = useState(false);
+  const [sidebarData, setSideBarData] = useState([]);
+
   const quarterMapping = useQuarterMapping();
+  const filteredData = (result?.Data || []).filter((item) => {
+    const matchesLocoNumber =
+      !selectedLocoNumbers?.length ||
+      selectedLocoNumbers.includes(item?.Loco_Description);
+    return matchesLocoNumber;
+  });
+  const router = useRouter();
+  const { asPath } = router;
   const groupedData = useMemo(
-    () => createGroupedData(result, quarterMapping),
-    [result, quarterMapping]
+    () => createGroupedData(result, quarterMapping, filteredData),
+    [result, quarterMapping, filteredData]
   );
   const allYears = useAllYears(groupedData);
+  useEffect(() => {
+    if (result?.Data) {
+      const uniqueLocoNumbers = [
+        ...new Set(
+          result.Data.map((item) => item?.Loco_Description).filter(
+            (description) => description !== null && description !== undefined
+          )
+        ),
+      ];
+
+      setLocomotiveNumbers(uniqueLocoNumbers);
+      setSelectedLocoNumbers(uniqueLocoNumbers);
+    }
+  }, [result]);
 
   const handleYearToggle = (year) => {
     setExpandedYears((prev) => {
@@ -405,47 +447,160 @@ const Table = ({ result }) => {
       ];
     });
   };
+  const rowExpansionTemplate = ({ details }) => {
+    const handleDescriptionClick = (description) => {
+      setSelectedLocoDescription(description);
 
-  const rowExpansionTemplate = ({ details }) => (
-    <DataTable value={details} className="hide-header">
-      <Column />
-      <Column
-        field="description"
-        header={false}
-        style={{
-          minWidth: "160px",
-        }}
-      />
-      {getColumnComponents()}
-    </DataTable>
-  );
+      const filterDataSet = filteredData.filter((data) => {
+        return (
+          data.Loco_Description.trim().toLowerCase() ===
+          description.trim().toLowerCase()
+        );
+      });
 
-  return (
-    <div className="card m-4 ">
-      <DataTable
-        tableStyle={{
-          minWidth: "120px",
-          width: "auto",
-        }}
-        value={groupedData}
-        expandedRows={expandedRows}
-        onRowToggle={(e) => setExpandedRows(e.data)}
-        rowExpansionTemplate={rowExpansionTemplate}
-        dataKey="label"
-      >
-        <Column expander style={{ width: "3rem" }} />
+      const queryString = asPath.split("?")[1];
+
+      const newSidebarData = filterDataSet.filter((data) => {
+        return data[queryString] && data[queryString].trim() !== "";
+      });
+
+      setSideBarData(newSidebarData);
+      if (filterDataSet) {
+        setVisibleRight(true);
+      } else {
+        console.log("No data found for the selected description.");
+        setVisibleRight(false);
+      }
+    };
+
+    return (
+      <DataTable value={details} className="hide-header">
+        <Column />
         <Column
-          field="label"
-          header="Cost Type"
+          field="description"
+          header={false}
           style={{
-            minWidth: "145px",
-
-            textAlign: "start",
-            fontSize: "17px",
+            minWidth: "160px",
+            cursor: "pointer",
           }}
+          body={({ description }) => (
+            <div onClick={() => handleDescriptionClick(description, details)}>
+              {description}
+            </div>
+          )}
         />
-        {getTotalColumnComponents()}
+        {getColumnComponents()}
       </DataTable>
+    );
+  };
+
+  const handleRowExpansion = (e) => {
+    const costTypes = Object.keys(e.data || {}).filter(
+      (key) => e.data[key] === true
+    );
+    const latestCostType = costTypes.pop();
+
+    if (latestCostType) {
+      router.push(
+        `/cost-table?Estimated_${encodeURIComponent(
+          latestCostType.replace(/\s+/g, "_")
+        )}`
+      );
+    }
+  };
+  console.log(sidebarData, "sidebar dat");
+  return (
+    <div className=" p-8">
+      <div className="w-full flex justify-center items-start gap-4 mb-4">
+        <div className="w-1/4">
+          <FloatLabel>
+            <MultiSelect
+              value={selectedLocoNumbers}
+              onChange={(e) => setSelectedLocoNumbers(e.value)}
+              options={locomotiveNumbers.map((number) => ({
+                label: number,
+                value: number,
+              }))}
+              selectAllLabel="All"
+              placeholder="Select Locomotive Numbers"
+              showClear
+              className="w-full p-2"
+              display="chip"
+            />
+            <label htmlFor="ms-loco">Locomotive Numbers</label>
+          </FloatLabel>
+        </div>
+      </div>
+
+      <div className="card">
+        <Sidebar
+          visible={visibleRight}
+          position="right"
+          onHide={() => setVisibleRight(false)}
+        >
+          <h2 className="text-xl font-semibold mb-4">
+            {selectedLocoDescription}
+          </h2>
+          <IconField iconPosition="left" className="my-4">
+            <InputIcon className="pi pi-search pl-1"> </InputIcon>
+            <InputText
+              v-model="value1"
+              placeholder="Search by PM desc..."
+              className="w-full rounded-md"
+            />
+          </IconField>
+          {sidebarData.length > 0 ? (
+            <>
+              {sidebarData.map((data) => (
+                <Card
+                  className="p-0 mt-3 border border-gray-200"
+                  role="region"
+                  key={data.id}
+                >
+                  <h3 className="text-lg font-medium mb-1">
+                    {" "}
+                    {data.Next_Due_Date}
+                  </h3>{" "}
+                  <p className="text-base font-normal">
+                    PM Description :{data.PM_Description}
+                  </p>
+                </Card>
+              ))}
+            </>
+          ) : (
+            <p className="text-lg font-medium ">Nothing to Show!</p>
+          )}
+        </Sidebar>
+      </div>
+
+      <div>
+        <DataTable
+          tableStyle={{
+            minWidth: "120px",
+            width: "auto",
+          }}
+          value={groupedData}
+          expandedRows={expandedRows}
+          onRowToggle={(e) => {
+            setExpandedRows(e.data);
+            handleRowExpansion(e);
+          }}
+          rowExpansionTemplate={rowExpansionTemplate}
+          dataKey="label"
+        >
+          <Column expander style={{ width: "3rem" }} />
+          <Column
+            field="label"
+            header="Cost Type"
+            style={{
+              minWidth: "145px",
+              textAlign: "start",
+              fontSize: "17px",
+            }}
+          />
+          {getTotalColumnComponents()}
+        </DataTable>
+      </div>
     </div>
   );
 };
