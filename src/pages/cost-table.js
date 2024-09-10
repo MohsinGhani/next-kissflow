@@ -12,6 +12,7 @@ import { IconField } from "primereact/iconfield";
 import { InputIcon } from "primereact/inputicon";
 import { InputText } from "primereact/inputtext";
 import { useRouter } from "next/router";
+import { Panel } from "primereact/panel";
 const useQuarterMapping = () =>
   useMemo(
     () => ({
@@ -172,10 +173,11 @@ const Table = ({ result }) => {
   const [expandedQuarters, setExpandedQuarters] = useState(new Set());
   const [selectedLocoNumbers, setSelectedLocoNumbers] = useState([]);
   const [locomotiveNumbers, setLocomotiveNumbers] = useState([]);
+  const [sidebarFilter, setSidebarFilter] = useState([]);
   const [selectedLocoDescription, setSelectedLocoDescription] = useState("");
   const [visibleRight, setVisibleRight] = useState(false);
   const [sidebarData, setSideBarData] = useState([]);
-
+  const [searchTerm, setSearchTerm] = useState("");
   const quarterMapping = useQuarterMapping();
   const filteredData = (result?.Data || []).filter((item) => {
     const matchesLocoNumber =
@@ -185,11 +187,13 @@ const Table = ({ result }) => {
   });
   const router = useRouter();
   const { asPath } = router;
+
   const groupedData = useMemo(
     () => createGroupedData(result, quarterMapping, filteredData),
     [result, quarterMapping, filteredData]
   );
   const allYears = useAllYears(groupedData);
+
   useEffect(() => {
     if (result?.Data) {
       const uniqueLocoNumbers = [
@@ -203,7 +207,7 @@ const Table = ({ result }) => {
       setLocomotiveNumbers(uniqueLocoNumbers);
       setSelectedLocoNumbers(uniqueLocoNumbers);
     }
-  }, [result]);
+  }, []);
 
   const handleYearToggle = (year) => {
     setExpandedYears((prev) => {
@@ -346,6 +350,37 @@ const Table = ({ result }) => {
       return newSet;
     });
   };
+  const getDataWithFilter = (year, description, quarter, month) => {
+    const yearNumber = Number(year);
+    const trimmedDescription = description.trim().toLowerCase();
+    const queryString = asPath.split("?")[1];
+
+    const dataset = filteredData.filter((item) => {
+      const dueDate = new Date(item.Next_Due_Date);
+      const dueDateYear = dueDate.getFullYear();
+      const itemMonth = dueDate.toLocaleString("default", { month: "long" });
+
+      return (
+        (!year || dueDateYear === yearNumber) &&
+        (!description ||
+          item.Loco_Description.trim().toLowerCase() === trimmedDescription) &&
+        (!queryString || item[queryString]?.trim()) &&
+        (!month || itemMonth === month) &&
+        (!quarter || quarterMapping[quarter]?.includes(itemMonth))
+      );
+    });
+
+    const heading = [
+      description && description,
+      year && ` for ${year}`,
+      quarter && ` in ${quarter}`,
+      month && ` during ${month}`,
+    ];
+    setSearchTerm("");
+    setSelectedLocoDescription(heading);
+    setSideBarData(dataset);
+    setVisibleRight(true);
+  };
 
   const renderYearColumns = () =>
     allYears.map((year) => (
@@ -362,17 +397,21 @@ const Table = ({ result }) => {
             </button>
           </div>
         }
-        body={({ years }) => {
-          if (!years || !years[year]) {
-            return "0 EUR";
-          }
+        body={({ years, description }) => {
           const total = years[year]?.total || 0;
-          return total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR";
+
+          return (
+            <div
+              className="cursor-pointer"
+              onClick={() => getDataWithFilter(year, description)}
+            >
+              {total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR"}
+            </div>
+          );
         }}
         className="table-field-style"
       />
     ));
-
   const renderMonthColumns = () =>
     Array.from(expandedQuarters).flatMap((key) => {
       const [year, quarter] = key.split("-");
@@ -381,13 +420,23 @@ const Table = ({ result }) => {
           key={`${year}-${quarter}-${month}`}
           field={`${year}-${quarter}-${month}`}
           header={month}
-          body={({ years }) => {
+          body={({ years, description }) => {
             if (!years || !years[year] || !years[year].quarters[quarter]) {
               return "0 EUR";
             }
             const monthlyCost =
               years[year].quarters[quarter].months[month] || 0;
-            return monthlyCost > 0 ? `${monthlyCost.toFixed(2)} EUR` : "0 EUR";
+
+            return (
+              <div
+                className="cursor-pointer"
+                onClick={() =>
+                  getDataWithFilter(year, description, quarter, month)
+                }
+              >
+                {monthlyCost > 0 ? `${monthlyCost.toFixed(2)} EUR` : "0 EUR"}
+              </div>
+            );
           }}
           className="table-field-style"
         />
@@ -410,12 +459,20 @@ const Table = ({ result }) => {
               </button>
             </div>
           }
-          body={({ years }) => {
+          body={({ years, description }) => {
             if (!years || !years[year] || !years[year].quarters) {
               return "0 EUR";
             }
             const total = years[year].quarters[quarter]?.total || 0;
-            return total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR";
+
+            return (
+              <div
+                className="cursor-pointer"
+                onClick={() => getDataWithFilter(year, description, quarter)}
+              >
+                {total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR"}
+              </div>
+            );
           }}
           className="table-field-style"
         />
@@ -432,7 +489,6 @@ const Table = ({ result }) => {
       const relatedQuarterColumns = quarterColumns.filter((qCol) =>
         qCol.key.startsWith(`${year}-`)
       );
-
       return [
         yearColumn,
         ...relatedQuarterColumns.flatMap((quarterColumn) => {
@@ -451,26 +507,18 @@ const Table = ({ result }) => {
     const handleDescriptionClick = (description) => {
       setSelectedLocoDescription(description);
 
-      const filterDataSet = filteredData.filter((data) => {
-        return (
-          data.Loco_Description.trim().toLowerCase() ===
-          description.trim().toLowerCase()
-        );
-      });
-
+      const trimmedDescription = description.trim().toLowerCase();
       const queryString = asPath.split("?")[1];
 
-      const newSidebarData = filterDataSet.filter((data) => {
-        return data[queryString] && data[queryString].trim() !== "";
-      });
+      const filteredDataset = filteredData
+        .filter(
+          ({ Loco_Description }) =>
+            Loco_Description.trim().toLowerCase() === trimmedDescription
+        )
+        .filter((data) => data[queryString]?.trim());
 
-      setSideBarData(newSidebarData);
-      if (filterDataSet) {
-        setVisibleRight(true);
-      } else {
-        console.log("No data found for the selected description.");
-        setVisibleRight(false);
-      }
+      setSideBarData(filteredDataset);
+      setVisibleRight(true);
     };
 
     return (
@@ -499,7 +547,7 @@ const Table = ({ result }) => {
       (key) => e.data[key] === true
     );
     const latestCostType = costTypes.pop();
-
+    console.log(latestCostType);
     if (latestCostType) {
       router.push(
         `/cost-table?Estimated_${encodeURIComponent(
@@ -508,7 +556,20 @@ const Table = ({ result }) => {
       );
     }
   };
-  console.log(sidebarData, "sidebar dat");
+
+  useEffect(() => {
+    if (searchTerm && sidebarData) {
+      const filterData = sidebarData.filter((item) =>
+        item.PM_Description.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setSidebarFilter(filterData);
+    }
+  }, [searchTerm]);
+  const formatDate = (dateString) => {
+    const [year, month, day] = dateString.split("-");
+    return `${day}-${month}-${year}`;
+  };
+
   return (
     <div className=" p-8">
       <div className="w-full flex justify-center items-start gap-4 mb-4">
@@ -538,34 +599,36 @@ const Table = ({ result }) => {
           position="right"
           onHide={() => setVisibleRight(false)}
         >
-          <h2 className="text-xl font-semibold mb-4">
-            {selectedLocoDescription}
+          <h2 className="text-2xl mr-2 font-bold mb-4">
+            {selectedLocoDescription} :
           </h2>
           <IconField iconPosition="left" className="my-4">
-            <InputIcon className="pi pi-search pl-1"> </InputIcon>
+            <InputIcon className="pi pi-search "> </InputIcon>
             <InputText
-              v-model="value1"
-              placeholder="Search by PM desc..."
-              className="w-full rounded-md"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search ..."
+              className="w-full rounded-md "
             />
           </IconField>
+
           {sidebarData.length > 0 ? (
             <>
-              {sidebarData.map((data) => (
-                <Card
-                  className="p-0 mt-3 border border-gray-200"
-                  role="region"
-                  key={data.id}
-                >
-                  <h3 className="text-lg font-medium mb-1">
-                    {" "}
-                    {data.Next_Due_Date}
-                  </h3>{" "}
-                  <p className="text-base font-normal">
-                    PM Description :{data.PM_Description}
-                  </p>
-                </Card>
-              ))}
+              {(searchTerm.length > 0 ? sidebarFilter : sidebarData).map(
+                (data) => (
+                  <Card
+                    className="rounded-md mt-4 border  border-gray-200"
+                    key={data.id}
+                  >
+                    <h3 className="text-xl font-medium mb-1 mt-0 ">
+                      {formatDate(data.Next_Due_Date)}
+                    </h3>
+                    <p className="text-base font-normal">
+                      {data.PM_Description}
+                    </p>
+                  </Card>
+                )
+              )}
             </>
           ) : (
             <p className="text-lg font-medium ">Nothing to Show!</p>
