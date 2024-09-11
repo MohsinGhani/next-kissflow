@@ -1,129 +1,644 @@
-import React, { useEffect, useState } from "react";
-import moment from "moment";
+import React, { useState, useMemo, useEffect } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
-import { Button } from "primereact/button";
-import { Calendar } from "primereact/calendar";
-import { FloatLabel } from "primereact/floatlabel";
+import "primereact/resources/themes/saga-blue/theme.css";
+import "primereact/resources/primereact.min.css";
+import "primeicons/primeicons.css";
 import { MultiSelect } from "primereact/multiselect";
-import { Dropdown } from "primereact/dropdown";
+import { FloatLabel } from "primereact/floatlabel";
+import { Sidebar } from "primereact/sidebar";
+import { Card } from "primereact/card";
+import { IconField } from "primereact/iconfield";
+import { InputIcon } from "primereact/inputicon";
+import { InputText } from "primereact/inputtext";
 
-const ROWS_PER_PAGE_OPTIONS = [5, 10, 25, 50];
-const DAYS_IN_MONTH = 30;
-const MAX_DESC_LENGTH = 150;
+import { useRouter } from "next/router";
+const useQuarterMapping = () =>
+  useMemo(
+    () => ({
+      Q1: ["January", "February", "March"],
+      Q2: ["April", "May", "June"],
+      Q3: ["July", "August", "September"],
+      Q4: ["October", "November", "December"],
+    }),
+    []
+  );
+const groupCosts = (data, costKey, quarterMapping) => {
+  return data.reduce((acc, item) => {
+    const description = item.Loco_Description || "Unknown";
+    const date = item.Next_Due_Date;
+    const costValue = item[costKey];
 
-const formatDescription = (desc) => {
-  return desc?.length > MAX_DESC_LENGTH
-    ? desc?.substring(0, MAX_DESC_LENGTH) + "..."
-    : desc;
+    if (date && typeof date === "string") {
+      const [year, month] = date.split("-");
+      const monthName = new Date(`${year}-${month}-01`).toLocaleString(
+        "default",
+        { month: "long" }
+      );
+      const quarter = Object.keys(quarterMapping).find((q) =>
+        quarterMapping[q].includes(monthName)
+      );
+      const value =
+        parseFloat(costValue?.replace(" EUR", "").replace(",", ".")) || 0;
+
+      acc[description] = acc[description] || { description, years: {} };
+      acc[description].years[year] = acc[description].years[year] || {
+        total: 0,
+        quarters: {},
+      };
+      acc[description].years[year].quarters[quarter] = acc[description].years[
+        year
+      ].quarters[quarter] || { total: 0, months: {} };
+
+      acc[description].years[year].total += value;
+      acc[description].years[year].quarters[quarter].total += value;
+      acc[description].years[year].quarters[quarter].months[monthName] =
+        (acc[description].years[year].quarters[quarter].months[monthName] ||
+          0) + value;
+    }
+
+    return acc;
+  }, {});
 };
 
-const Index = ({ result }) => {
+const createGroupedData = (result, quarterMapping, filteredData) => {
+  const laborCost = groupCosts(
+    filteredData,
+    "Estimated_Labor_Cost",
+    quarterMapping
+  );
+  const toolCost = groupCosts(
+    filteredData,
+    "Estimated_Tool_Cost",
+    quarterMapping
+  );
+  const serviceCost = groupCosts(
+    filteredData,
+    "Estimated_Service_Cost",
+    quarterMapping
+  );
+  const itemCost = groupCosts(
+    filteredData,
+    "Estimated_Item_Cost",
+    quarterMapping
+  );
+
+  const calculateTotalCosts = () => {
+    const allCosts = [laborCost, toolCost, serviceCost, itemCost];
+    const totalCosts = {};
+
+    allCosts.forEach((costGroup) => {
+      Object.entries(costGroup).forEach(([description, descriptionData]) => {
+        totalCosts[description] = totalCosts[description] || {
+          description,
+          years: {},
+        };
+
+        Object.entries(descriptionData.years).forEach(([year, yearData]) => {
+          const yearTotal = totalCosts[description].years[year] || {
+            total: 0,
+            quarters: {},
+          };
+          yearTotal.total += yearData.total;
+
+          Object.entries(yearData.quarters).forEach(
+            ([quarter, quarterData]) => {
+              const quarterTotal = yearTotal.quarters[quarter] || {
+                total: 0,
+                months: {},
+              };
+              quarterTotal.total += quarterData.total;
+
+              Object.entries(quarterData.months).forEach(
+                ([month, monthValue]) => {
+                  quarterTotal.months[month] =
+                    (quarterTotal.months[month] || 0) + monthValue;
+                }
+              );
+
+              yearTotal.quarters[quarter] = quarterTotal;
+            }
+          );
+
+          totalCosts[description].years[year] = yearTotal;
+        });
+      });
+    });
+
+    return totalCosts;
+  };
+
+  const createGroup = (label, details) => ({
+    label,
+    details: Object.values(details ?? {}),
+  });
+
+  return [
+    createGroup("Labor Cost", laborCost),
+    createGroup("Tool Cost", toolCost),
+    createGroup("Service Cost", serviceCost),
+    createGroup("Item Cost", itemCost),
+    createGroup("Total Cost", calculateTotalCosts()),
+  ];
+};
+
+const useAllYears = (groupedData) =>
+  useMemo(
+    () =>
+      [
+        ...new Set(
+          groupedData.flatMap(({ details }) =>
+            details.flatMap(({ years }) => Object.keys(years))
+          )
+        ),
+      ].sort(),
+    [groupedData]
+  );
+
+const Table = ({ result }) => {
+  const [expandedRows, setExpandedRows] = useState([]);
+  const [expandedYears, setExpandedYears] = useState(new Set());
+  const [expandedQuarters, setExpandedQuarters] = useState(new Set());
   const [selectedLocoNumbers, setSelectedLocoNumbers] = useState([]);
   const [locomotiveNumbers, setLocomotiveNumbers] = useState([]);
-  const [dates, setDates] = useState(null);
-  const [expandedRowId, setExpandedRowId] = useState(null);
+  const [sidebarFilter, setSidebarFilter] = useState([]);
+  const [selectedLocoDescription, setSelectedLocoDescription] = useState("");
+  const [visibleRight, setVisibleRight] = useState(false);
+  const [sidebarData, setSideBarData] = useState([]);
+  const [allDataFilter, setAllDataFilter] = useState(false);
 
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const quarterMapping = useQuarterMapping();
+  const router = useRouter();
+  const { asPath } = router;
+
+  const filteredData = (result?.Data || []).filter(
+    ({ Loco_Description }) =>
+      !selectedLocoNumbers?.length ||
+      selectedLocoNumbers.includes(Loco_Description)
+  );
+  const groupedData = useMemo(
+    () => createGroupedData(result, quarterMapping, filteredData),
+    [result, quarterMapping, filteredData]
+  );
+  const allYears = useAllYears(groupedData);
   useEffect(() => {
-    if (result?.Data) {
-      const uniqueLocoNumbers = [
-        ...new Set(
-          result.Data.map((item) => item?.Loco_Description).filter(Boolean)
-        ),
-      ];
-      console.log(uniqueLocoNumbers);
-      setLocomotiveNumbers(uniqueLocoNumbers);
-      setSelectedLocoNumbers(uniqueLocoNumbers);
+    const uniqueLocoNumbers = result?.Data
+      ? [
+          ...new Set(
+            result.Data.map(({ Loco_Description }) => Loco_Description).filter(
+              Boolean
+            )
+          ),
+        ]
+      : [];
+
+    setLocomotiveNumbers(uniqueLocoNumbers);
+    setSelectedLocoNumbers(uniqueLocoNumbers);
+  }, []);
+  useEffect(() => {
+    if (searchTerm && sidebarData) {
+      const filterData = sidebarData.filter((item) =>
+        item.PM_Description?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setSidebarFilter(filterData);
     }
-  }, [result]);
+  }, [searchTerm]);
 
-  const getDateAfterDays = (days) => moment().add(days, "days").toDate();
-
-  const handleNextMonthsFilter = (months) => {
-    const startDate = moment().startOf("day").toDate();
-    const endDate = getDateAfterDays(months * DAYS_IN_MONTH);
-    setDates([startDate, endDate]);
+  const handleYearToggle = (year) => {
+    setExpandedYears((prev) => {
+      const newSet = new Set(prev);
+      newSet.has(year) ? newSet.delete(year) : newSet.add(year);
+      return newSet;
+    });
   };
-
-  const renderCell = (rowData, field) => rowData[field] || "-";
-
-  const filteredData = (result?.Data || [])
-    .filter((item) => {
-      const matchesLocoNumber =
-        !selectedLocoNumbers.length ||
-        selectedLocoNumbers.includes(item?.Loco_Description);
-      const matchesDateRange = dates
-        ? moment(item.Next_Due_Date).isBetween(
-            moment(dates[0]).startOf("day"),
-            moment(dates[1]).endOf("day"),
-            null,
-            "[]"
-          )
-        : true;
-      return matchesLocoNumber && matchesDateRange;
-    })
-    .sort((a, b) => moment(a.Next_Due_Date).diff(moment(b.Next_Due_Date)));
-
-  const columns = [
-    { field: "Loco_Description", header: "Loco Description", width: "12%" },
-    { field: "PM_Description", header: "PM Description", width: "30%" },
-    {
-      field: "Estimated_Labor_Cost",
-      header: "Estimated Labor Cost",
-      width: "12%",
-    },
-    {
-      field: "Estimated_Tool_Cost",
-      header: "Estimated Tool Cost",
-      width: "12%",
-    },
-    {
-      field: "Estimated_Service_Cost",
-      header: "Estimated Service Cost",
-      width: "12%",
-    },
-    {
-      field: "Estimated_Item_Cost",
-      header: "Estimated Item Cost",
-      width: "12%",
-    },
-    { field: "Total_Budget", header: "Total Budget", width: "12%" },
-  ];
-
-  const customPaginatorTemplate = {
-    layout:
-      "RowsPerPageDropdown FirstPageLink PrevPageLink CurrentPageReport NextPageLink LastPageLink",
-    RowsPerPageDropdown: (options) => (
-      <Dropdown
-        placeholder="Rows per page"
-        value={options.value}
-        options={options.options}
-        onChange={options.onChange}
+  const renderTotalYearColumns = () =>
+    allYears.map((year) => (
+      <Column
+        key={year}
+        field={year}
+        header={
+          <button
+            className="btn-quarter-toggle"
+            onClick={() => handleYearToggle(year)}
+          >
+            {year}
+          </button>
+        }
+        body={({ details }) => {
+          const total =
+            details?.reduce(
+              (acc, { years }) => acc + (years[year]?.total || 0),
+              0
+            ) || 0;
+          return (
+            <div
+              className="cursor-pointer"
+              onClick={() => getAllDatawithFilter(year)}
+            >
+              {total.toFixed(2)} EUR
+            </div>
+          );
+        }}
+        className="table-field-style"
+        style={{ background: "#d3d3d3" }}
       />
-    ),
+    ));
+
+  const renderTotalQuarterColumns = () =>
+    Array.from(expandedYears).flatMap((year) =>
+      ["Q1", "Q2", "Q3", "Q4"].map((quarter) => (
+        <Column
+          style={{ background: "#e4e4e4" }}
+          key={`${year}-${quarter}`}
+          field={`${year}-${quarter}`}
+          header={
+            <div>
+              <button
+                className="btn-quarter-toggle"
+                onClick={() => handleQuarterToggle(year, quarter)}
+              >
+                {quarter}
+              </button>
+            </div>
+          }
+          body={({ details }) => {
+            if (!Array.isArray(details)) {
+              return <div>0 EUR</div>;
+            }
+            const total = details.reduce(
+              (acc, { years }) =>
+                acc + (years[year]?.quarters[quarter]?.total || 0),
+              0
+            );
+            return (
+              <div
+                className="cursor-pointer"
+                onClick={() => getAllDatawithFilter(year, quarter)}
+              >
+                {total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR"}
+              </div>
+            );
+          }}
+          className="table-field-style"
+        />
+      ))
+    );
+
+  const renderTotalMonthColumns = () =>
+    Array.from(expandedQuarters).flatMap((key) => {
+      const [year, quarter] = key.split("-");
+      return quarterMapping[quarter].map((month) => (
+        <Column
+          style={{ background: "#f2f2f2" }}
+          key={`${year}-${quarter}-${month}`}
+          field={`${year}-${quarter}-${month}`}
+          header={month}
+          body={({ details }) => {
+            if (!details || !Array.isArray(details)) {
+              return "0 EUR";
+            }
+
+            const monthlyCost = details.reduce((acc, { years }) => {
+              if (
+                years[year] &&
+                years[year].quarters[quarter] &&
+                years[year].quarters[quarter].months[month]
+              ) {
+                return acc + years[year].quarters[quarter].months[month];
+              }
+              return acc;
+            }, 0);
+
+            return (
+              <div
+                className="cursor-pointer"
+                onClick={() => getAllDatawithFilter(year, quarter, month)}
+              >
+                {monthlyCost > 0 ? `${monthlyCost.toFixed(2)} EUR` : "0 EUR"}
+              </div>
+            );
+          }}
+          className="table-field-style"
+        />
+      ));
+    });
+
+  const getTotalColumnComponents = () => {
+    const yearColumns = renderTotalYearColumns();
+    const quarterColumns = renderTotalQuarterColumns();
+    const monthColumns = renderTotalMonthColumns();
+
+    return yearColumns.flatMap((yearColumn) => {
+      const year = yearColumn.key;
+
+      const relatedQuarterColumns = quarterColumns.filter((qCol) =>
+        qCol.key.startsWith(`${year}-`)
+      );
+
+      return [
+        yearColumn,
+        ...relatedQuarterColumns.flatMap((quarterColumn) => {
+          const quarter = quarterColumn.key.split("-")[1];
+
+          const relatedMonthColumns = monthColumns.filter((mCol) =>
+            mCol.key.startsWith(`${year}-${quarter}-`)
+          );
+
+          return [quarterColumn, ...relatedMonthColumns];
+        }),
+      ];
+    });
+  };
+  const handleQuarterToggle = (year, quarter) => {
+    const key = `${year}-${quarter}`;
+    setExpandedQuarters((prev) => {
+      const newSet = new Set(prev);
+      newSet.has(key) ? newSet.delete(key) : newSet.add(key);
+      return newSet;
+    });
   };
 
-  const renderDescCell = (rowData) => {
-    const desc = rowData["PM_Description"];
-    const rowId = rowData["_id"];
-    const truncatedDesc = formatDescription(desc);
+  const getAllDatawithFilter = (year, quarter, month) => {
+    setAllDataFilter(true);
+    const yearNumber = Number(year);
+
+    const dataset = filteredData.filter((item) => {
+      const dueDate = new Date(item.Next_Due_Date);
+      const dueDateYear = dueDate.getFullYear();
+      const itemMonth = dueDate.toLocaleString("default", { month: "long" });
+
+      const matchesYear = !year || dueDateYear === yearNumber;
+      const matchesQuarter =
+        !quarter || quarterMapping[quarter]?.includes(itemMonth);
+      const matchesMonth = !month || itemMonth === month;
+      const hasEstimatedLaborCost = item.Estimated_Labor_Cost != null;
+
+      return (
+        matchesYear && matchesQuarter && matchesMonth && hasEstimatedLaborCost
+      );
+    });
+
+    const dataByDescription = dataset.reduce((acc, item) => {
+      const description = item.Loco_Description || "No Description";
+      if (!acc[description]) {
+        acc[description] = [];
+      }
+      acc[description].push(item);
+      return acc;
+    }, {});
+
+    setSelectedLocoDescription([
+      `Cost In ${year}${quarter ? ` - ${quarter}` : ""}${
+        month ? ` - ${month}` : ""
+      }`,
+    ]);
+    setSideBarData(Object.values(dataByDescription).flat());
+    setVisibleRight(true);
+  };
+
+  const getDataWithFilter = (year, description, quarter, month) => {
+    setAllDataFilter(false);
+    const yearNumber = Number(year);
+    const trimmedDescription = description.trim().toLowerCase();
+    const queryString = asPath.split("?")[1];
+    console.log(queryString);
+    const dataset = filteredData.filter((item) => {
+      const dueDate = new Date(item.Next_Due_Date);
+      const dueDateYear = dueDate.getFullYear();
+      const itemMonth = dueDate.toLocaleString("default", { month: "long" });
+
+      return (
+        (!year || dueDateYear === yearNumber) &&
+        (!description ||
+          item.Loco_Description.trim().toLowerCase() === trimmedDescription) &&
+        (!queryString || item[queryString]?.trim()) &&
+        (!month || itemMonth === month) &&
+        (!quarter || quarterMapping[quarter]?.includes(itemMonth))
+      );
+    });
+
+    setSearchTerm("");
+    setSelectedLocoDescription([
+      `Cost In ${year}${quarter ? ` - ${quarter}` : ""}${
+        month ? ` - ${month}` : ""
+      }`,
+    ]);
+    setSideBarData(dataset);
+    setVisibleRight(true);
+  };
+
+  const renderYearColumns = () =>
+    allYears.map((year) => (
+      <Column
+        style={{ background: "#d3d3d3" }}
+        key={year}
+        field={year}
+        header={
+          <div>
+            <button
+              className="btn-year-toggle"
+              onClick={() => handleYearToggle(year)}
+            >
+              {year}
+            </button>
+          </div>
+        }
+        body={({ years, description }) => {
+          const total = years[year]?.total || 0;
+
+          return (
+            <div
+              className="cursor-pointer"
+              onClick={() => getDataWithFilter(year, description)}
+            >
+              {total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR"}
+            </div>
+          );
+        }}
+        className="table-field-style"
+      />
+    ));
+  const renderMonthColumns = () =>
+    Array.from(expandedQuarters).flatMap((key) => {
+      const [year, quarter] = key.split("-");
+      return quarterMapping[quarter].map((month) => (
+        <Column
+          style={{ background: "#f2f2f2" }}
+          key={`${year}-${quarter}-${month}`}
+          field={`${year}-${quarter}-${month}`}
+          header={month}
+          body={({ years, description }) => {
+            if (!years || !years[year] || !years[year].quarters[quarter]) {
+              return "0 EUR";
+            }
+            const monthlyCost =
+              years[year].quarters[quarter].months[month] || 0;
+
+            return (
+              <div
+                className="cursor-pointer"
+                onClick={() =>
+                  getDataWithFilter(year, description, quarter, month)
+                }
+              >
+                {monthlyCost > 0 ? `${monthlyCost.toFixed(2)} EUR` : "0 EUR"}
+              </div>
+            );
+          }}
+          className="table-field-style"
+        />
+      ));
+    });
+
+  const renderQuarterColumns = () =>
+    Array.from(expandedYears).flatMap((year) =>
+      ["Q1", "Q2", "Q3", "Q4"].map((quarter) => {
+        const key = `${year}-${quarter}`;
+        return (
+          <Column
+            key={key}
+            field={key}
+            header={
+              <button
+                className="btn-quarter-toggle"
+                onClick={() => handleQuarterToggle(year, quarter)}
+              >
+                {quarter}
+              </button>
+            }
+            body={({ years, description }) => {
+              const total = years?.[year]?.quarters?.[quarter]?.total || 0;
+              return (
+                <div
+                  className="cursor-pointer"
+                  onClick={() => getDataWithFilter(year, description, quarter)}
+                >
+                  {total.toFixed(2)} EUR
+                </div>
+              );
+            }}
+            className="table-field-style"
+            style={{ background: "#e4e4e4" }}
+          />
+        );
+      })
+    );
+
+  const getColumnComponents = () => {
+    const yearColumns = renderYearColumns();
+    const quarterColumns = renderQuarterColumns();
+    const monthColumns = renderMonthColumns();
+
+    return yearColumns.flatMap((yearColumn) => {
+      const year = yearColumn.key;
+
+      const relatedQuarterColumns = quarterColumns.filter((qCol) =>
+        qCol.key.startsWith(`${year}-`)
+      );
+      return [
+        yearColumn,
+        ...relatedQuarterColumns.flatMap((quarterColumn) => {
+          const quarter = quarterColumn.key.split("-")[1];
+
+          const relatedMonthColumns = monthColumns.filter((mCol) =>
+            mCol.key.startsWith(`${year}-${quarter}-`)
+          );
+
+          return [quarterColumn, ...relatedMonthColumns];
+        }),
+      ];
+    });
+  };
+  const rowExpansionTemplate = ({ details }) => {
+    const handleDescriptionClick = (description) => {
+      const trimmedDescription = description.trim().toLowerCase();
+      const queryString = asPath.split("?")[1];
+
+      const filteredDataset = filteredData
+        .filter(
+          ({ Loco_Description }) =>
+            Loco_Description.trim().toLowerCase() === trimmedDescription
+        )
+        .filter((data) => data[queryString]?.trim());
+
+      setSelectedLocoDescription(description);
+      setSideBarData(filteredDataset);
+      setVisibleRight(true);
+    };
 
     return (
-      <p
-        onClick={() =>
-          setExpandedRowId((prevId) => (prevId === rowId ? null : rowId))
-        }
-      >
-        {expandedRowId === rowId || desc?.length <= MAX_DESC_LENGTH
-          ? desc
-          : truncatedDesc}
-      </p>
+      <DataTable value={details} className="hide-header">
+        <Column />
+        <Column
+          field="description"
+          header={false}
+          style={{
+            minWidth: "160px",
+            cursor: "pointer",
+          }}
+          body={({ description }) => (
+            <div onClick={() => handleDescriptionClick(description, details)}>
+              {description}
+            </div>
+          )}
+        />
+        {getColumnComponents()}
+      </DataTable>
     );
   };
 
+  const handleRowExpansion = (e) => {
+    const costTypes = Object.keys(e.data || {}).filter(
+      (key) => e.data[key] === true
+    );
+    const latestCostType = costTypes.pop();
+    if (latestCostType) {
+      router.push(
+        `/cost-estimation?Estimated_${encodeURIComponent(
+          latestCostType.replace(/\s+/g, "_")
+        )}`
+      );
+    }
+  };
+
+  const formatDate = (dateString) => {
+    const [year, month, day] = dateString.split("-");
+    return `${day}-${month}-${year}`;
+  };
+  const dataToDisplay = searchTerm.length > 0 ? sidebarFilter : sidebarData;
+
+  const groupedDataAll = dataToDisplay.reduce((acc, item) => {
+    const description = item.Loco_Description || "No Description";
+    if (!acc.has(description)) {
+      acc.set(description, []);
+    }
+    acc.get(description).push(item);
+    return acc;
+  }, new Map());
+
+  const renderGroupedData = () =>
+    Array.from(groupedDataAll.entries()).map(([description, items]) => (
+      <div key={description}>
+        <h2 className="text-xl font-bold my-5">{description}</h2>
+        {items.map((data) => (
+          <Card
+            className="rounded-md mt-4 border border-gray-200"
+            key={data.id}
+          >
+            <h3 className="text-xl font-medium mb-1 mt-0">
+              {formatDate(data.Next_Due_Date)}
+            </h3>
+            <p className="text-base font-normal">{data.PM_Description}</p>
+          </Card>
+        ))}
+      </div>
+    ));
+
   return (
-    <div className="pt-8 mt-4">
-      <div className="w-full flex justify-center items-start gap-4">
+    <div className="p-8">
+      <div className="w-full flex justify-center items-start gap-4 mb-4">
         <div className="w-1/4">
           <FloatLabel>
             <MultiSelect
@@ -136,101 +651,116 @@ const Index = ({ result }) => {
               selectAllLabel="All"
               placeholder="Select Locomotive Numbers"
               showClear
-              className="w-full"
+              className="w-full p-2"
               display="chip"
             />
             <label htmlFor="ms-loco">Locomotive Numbers</label>
           </FloatLabel>
         </div>
-        <div className="w-1/4 flex flex-col gap-4 justify-center">
-          <FloatLabel>
-            <Calendar
-              value={dates}
-              onChange={(e) => setDates(e.value)}
-              selectionMode="range"
-              readOnlyInput
-              hideOnRangeSelection
-              view="month"
-              dateFormat="MM/yy"
-              placeholder="Month Range"
-              showButtonBar
-              className="w-full"
-            />
-            <label htmlFor="ms-month">Month Range</label>
-          </FloatLabel>
-          <div className="w-full flex justify-center items-center gap-4">
-            {[3, 6, 12].map((months) => (
-              <Button
-                key={months}
-                label={`Next ${months} Months`}
-                onClick={() => handleNextMonthsFilter(months)}
-                className="bg-primary border-primary px-2 py-[6px] text-sm flex-1"
-              />
-            ))}
-          </div>
-        </div>
       </div>
-      <div className="mt-10 p-10">
-        <DataTable
-          value={filteredData}
-          paginator
-          rows={7}
-          showGridlines
-          rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
-          paginatorTemplate={customPaginatorTemplate}
-          currentPageReportTemplate="{first} to {last} of {totalRecords}"
-          tableStyle={{ minWidth: "50rem" }}
-          paginatorLeft={<Button type="button" icon="pi pi-refresh" text />}
+
+      <div className="card">
+        <Sidebar
+          visible={visibleRight}
+          position="right"
+          onHide={() => setVisibleRight(false)}
         >
-          {columns.map((col) => (
-            <Column
-              key={col.field}
-              field={col.field}
-              header={col.header}
-              style={{ width: col.width }}
-              body={
-                col.field === "PM_Description"
-                  ? renderDescCell
-                  : (rowData) => renderCell(rowData, col.field)
-              }
+          <h2 className="text-2xl mr-2 font-bold mb-4">
+            {selectedLocoDescription}
+          </h2>
+          <IconField iconPosition="left" className="my-4">
+            <InputIcon className="pi pi-search" />
+            <InputText
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search ..."
+              className="w-full rounded-md"
             />
-          ))}
+          </IconField>
+
+          <div>
+            {dataToDisplay.length ? (
+              allDataFilter ? (
+                renderGroupedData()
+              ) : (
+                dataToDisplay.map((data) => (
+                  <Card
+                    key={data.id}
+                    className="rounded-md mt-4 border border-gray-200"
+                  >
+                    <h3 className="text-xl font-medium mb-1 mt-0">
+                      {formatDate(data.Next_Due_Date)}
+                    </h3>
+                    <p className="text-base font-normal">
+                      {data.PM_Description}
+                    </p>
+                  </Card>
+                ))
+              )
+            ) : (
+              <p className="text-lg font-medium">Nothing to Show!</p>
+            )}
+          </div>
+        </Sidebar>
+      </div>
+
+      <div>
+        <DataTable
+          tableStyle={{ minWidth: "120px", width: "auto" }}
+          value={groupedData}
+          expandedRows={expandedRows}
+          onRowToggle={(e) => {
+            setExpandedRows(e.data);
+            handleRowExpansion(e);
+          }}
+          rowExpansionTemplate={rowExpansionTemplate}
+          dataKey="label"
+        >
+          <Column expander style={{ width: "3rem" }} />
+          <Column
+            field="label"
+            header="Cost Type"
+            style={{ minWidth: "145px", textAlign: "start", fontSize: "17px" }}
+          />
+          {getTotalColumnComponents()}
         </DataTable>
       </div>
     </div>
   );
 };
-
 export async function getServerSideProps() {
   try {
-    const {
-      NEXT_PUBLIC_BASE_URL: baseURL,
-      NEXT_PUBLIC_ACCOUNT_ID: accountId,
-      NEXT_PUBLIC_FORM_ID: formId,
-      NEXT_PUBLIC_ACCESS_KEY_ID: accessKeyId,
-      NEXT_PUBLIC_ACCESS_KEY_SECRET: accessKeySecret,
-    } = process.env;
+    const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
+    const accountId = process.env.NEXT_PUBLIC_ACCOUNT_ID;
+    const formId = process.env.NEXT_PUBLIC_FORM_ID;
 
     const response = await fetch(
       `${baseURL}/form/2/${accountId}/${formId}/list?page_size=100`,
       {
         method: "GET",
         headers: {
-          "X-Access-Key-Id": accessKeyId,
-          "X-Access-Key-Secret": accessKeySecret,
+          "X-Access-Key-Id": process.env.NEXT_PUBLIC_ACCESS_KEY_ID,
+          "X-Access-Key-Secret": process.env.NEXT_PUBLIC_ACCESS_KEY_SECRET,
           accept: "application/json",
         },
       }
     );
 
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
     const result = await response.json();
-    return { props: { result } };
+
+    return {
+      props: { result },
+    };
   } catch (error) {
-    console.error("Failed to fetch data:", error);
-    return { props: { result: { Data: [] } } };
+    console.log("Failed to fetch KissFlow API data:", error);
+
+    return {
+      props: { result: { Data: [] } },
+    };
   }
 }
-
-export default Index;
+export default Table;
