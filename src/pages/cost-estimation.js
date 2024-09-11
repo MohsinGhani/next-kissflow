@@ -13,6 +13,7 @@ import { InputIcon } from "primereact/inputicon";
 import { InputText } from "primereact/inputtext";
 
 import { useRouter } from "next/router";
+import { Tag } from "primereact/tag";
 const useQuarterMapping = () =>
   useMemo(
     () => ({
@@ -165,8 +166,6 @@ const Table = ({ result }) => {
   const [selectedLocoDescription, setSelectedLocoDescription] = useState("");
   const [visibleRight, setVisibleRight] = useState(false);
   const [sidebarData, setSideBarData] = useState([]);
-  const [allDataFilter, setAllDataFilter] = useState(false);
-
   const [searchTerm, setSearchTerm] = useState("");
 
   const quarterMapping = useQuarterMapping();
@@ -199,7 +198,7 @@ const Table = ({ result }) => {
   }, []);
   useEffect(() => {
     if (searchTerm && sidebarData) {
-      const filterData = sidebarData.filter((item) =>
+      const filterData = sidebarData.dataset.filter((item) =>
         item.PM_Description?.toLowerCase().includes(searchTerm.toLowerCase())
       );
       setSidebarFilter(filterData);
@@ -213,8 +212,8 @@ const Table = ({ result }) => {
       return newSet;
     });
   };
-  const renderTotalYearColumns = () =>
-    allYears.map((year) => (
+  const renderTotalYearColumns = () => {
+    return allYears.map((year) => (
       <Column
         key={year}
         field={year}
@@ -226,25 +225,28 @@ const Table = ({ result }) => {
             {year}
           </button>
         }
-        body={({ details }) => {
+        body={(result, { rowIndex }) => {
           const total =
-            details?.reduce(
+            result?.details?.reduce(
               (acc, { years }) => acc + (years[year]?.total || 0),
               0
             ) || 0;
           return (
             <div
               className="cursor-pointer"
-              onClick={() => getAllDatawithFilter(year)}
+              onClick={() => getAllDatawithFilter(year, null, null, rowIndex)}
             >
               {total.toFixed(2)} EUR
             </div>
           );
         }}
         className="table-field-style"
-        style={{ background: "#d3d3d3" }}
+        style={{
+          background: expandedYears.has(year) ? "#d3d3d3" : "white",
+        }}
       />
     ));
+  };
 
   const renderTotalQuarterColumns = () =>
     Array.from(expandedYears).flatMap((year) =>
@@ -263,11 +265,11 @@ const Table = ({ result }) => {
               </button>
             </div>
           }
-          body={({ details }) => {
-            if (!Array.isArray(details)) {
+          body={(result, { rowIndex }) => {
+            if (!Array.isArray(result?.details)) {
               return <div>0 EUR</div>;
             }
-            const total = details.reduce(
+            const total = result?.details?.reduce(
               (acc, { years }) =>
                 acc + (years[year]?.quarters[quarter]?.total || 0),
               0
@@ -275,7 +277,9 @@ const Table = ({ result }) => {
             return (
               <div
                 className="cursor-pointer"
-                onClick={() => getAllDatawithFilter(year, quarter)}
+                onClick={() =>
+                  getAllDatawithFilter(year, quarter, null, rowIndex)
+                }
               >
                 {total > 0 ? `${total.toFixed(2)} EUR` : "0 EUR"}
               </div>
@@ -295,12 +299,12 @@ const Table = ({ result }) => {
           key={`${year}-${quarter}-${month}`}
           field={`${year}-${quarter}-${month}`}
           header={month}
-          body={({ details }) => {
-            if (!details || !Array.isArray(details)) {
+          body={(result, { rowIndex }) => {
+            if (!result?.details || !Array.isArray(result?.details)) {
               return "0 EUR";
             }
 
-            const monthlyCost = details.reduce((acc, { years }) => {
+            const monthlyCost = result?.details.reduce((acc, { years }) => {
               if (
                 years[year] &&
                 years[year].quarters[quarter] &&
@@ -314,7 +318,9 @@ const Table = ({ result }) => {
             return (
               <div
                 className="cursor-pointer"
-                onClick={() => getAllDatawithFilter(year, quarter, month)}
+                onClick={() =>
+                  getAllDatawithFilter(year, quarter, month, rowIndex)
+                }
               >
                 {monthlyCost > 0 ? `${monthlyCost.toFixed(2)} EUR` : "0 EUR"}
               </div>
@@ -336,7 +342,6 @@ const Table = ({ result }) => {
       const relatedQuarterColumns = quarterColumns.filter((qCol) =>
         qCol.key.startsWith(`${year}-`)
       );
-
       return [
         yearColumn,
         ...relatedQuarterColumns.flatMap((quarterColumn) => {
@@ -360,8 +365,16 @@ const Table = ({ result }) => {
     });
   };
 
-  const getAllDatawithFilter = (year, quarter, month) => {
-    setAllDataFilter(true);
+  const getAllDatawithFilter = (year, quarter, month, rowIndex) => {
+    const groupedData = createGroupedData(
+      filteredData,
+      quarterMapping,
+      filteredData
+    );
+    let costType = "";
+    if (rowIndex >= 0 && rowIndex < groupedData.length) {
+      costType = groupedData[rowIndex].label;
+    }
     const yearNumber = Number(year);
 
     const dataset = filteredData.filter((item) => {
@@ -380,30 +393,20 @@ const Table = ({ result }) => {
       );
     });
 
-    const dataByDescription = dataset.reduce((acc, item) => {
-      const description = item.Loco_Description || "No Description";
-      if (!acc[description]) {
-        acc[description] = [];
-      }
-      acc[description].push(item);
-      return acc;
-    }, {});
-
     setSelectedLocoDescription([
-      `Cost In ${year}${quarter ? ` - ${quarter}` : ""}${
+      ` ${costType} In ${year}${quarter ? ` - ${quarter}` : ""}${
         month ? ` - ${month}` : ""
       }`,
     ]);
-    setSideBarData(Object.values(dataByDescription).flat());
+    setSideBarData({ dataset, costType: true });
     setVisibleRight(true);
   };
 
   const getDataWithFilter = (year, description, quarter, month) => {
-    setAllDataFilter(false);
     const yearNumber = Number(year);
     const trimmedDescription = description.trim().toLowerCase();
     const queryString = asPath.split("?")[1];
-    console.log(queryString);
+
     const dataset = filteredData.filter((item) => {
       const dueDate = new Date(item.Next_Due_Date);
       const dueDateYear = dueDate.getFullYear();
@@ -419,20 +422,25 @@ const Table = ({ result }) => {
       );
     });
 
+    const heading = [
+      description && description,
+      year && ` for ${year}`,
+      quarter && ` in ${quarter}`,
+      month && ` during ${month}`,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
     setSearchTerm("");
-    setSelectedLocoDescription([
-      `Cost In ${year}${quarter ? ` - ${quarter}` : ""}${
-        month ? ` - ${month}` : ""
-      }`,
-    ]);
-    setSideBarData(dataset);
+    setSelectedLocoDescription(heading);
+    setSideBarData({ dataset, costType: false });
     setVisibleRight(true);
   };
 
   const renderYearColumns = () =>
     allYears.map((year) => (
       <Column
-        style={{ background: "#d3d3d3" }}
+        style={{ background: expandedYears.has(year) ? "#d3d3d3" : "white" }}
         key={year}
         field={year}
         header={
@@ -575,14 +583,16 @@ const Table = ({ result }) => {
           field="description"
           header={false}
           style={{
-            minWidth: "160px",
+            minWidth: "165px",
             cursor: "pointer",
           }}
-          body={({ description }) => (
-            <div onClick={() => handleDescriptionClick(description, details)}>
-              {description}
-            </div>
-          )}
+          body={({ description }) => {
+            return (
+              <div onClick={() => handleDescriptionClick(description, details)}>
+                {description}
+              </div>
+            );
+          }}
         />
         {getColumnComponents()}
       </DataTable>
@@ -590,6 +600,7 @@ const Table = ({ result }) => {
   };
 
   const handleRowExpansion = (e) => {
+    console.log("hello");
     const costTypes = Object.keys(e.data || {}).filter(
       (key) => e.data[key] === true
     );
@@ -607,13 +618,12 @@ const Table = ({ result }) => {
     const [year, month, day] = dateString.split("-");
     return `${day}-${month}-${year}`;
   };
-  const dataToDisplay = searchTerm.length > 0 ? sidebarFilter : sidebarData;
+  const dataToDisplay =
+    searchTerm.length > 0 ? sidebarFilter : sidebarData.dataset;
 
-  const groupedDataAll = dataToDisplay.reduce((acc, item) => {
+  const groupedDataAll = dataToDisplay?.reduce((acc, item) => {
     const description = item.Loco_Description || "No Description";
-    if (!acc.has(description)) {
-      acc.set(description, []);
-    }
+    if (!acc.has(description)) acc.set(description, []);
     acc.get(description).push(item);
     return acc;
   }, new Map());
@@ -621,21 +631,25 @@ const Table = ({ result }) => {
   const renderGroupedData = () =>
     Array.from(groupedDataAll.entries()).map(([description, items]) => (
       <div key={description}>
-        <h2 className="text-xl font-bold my-5">{description}</h2>
+        {sidebarData.costType && (
+          <h2 className="text-xl font-bold my-5">{description}</h2>
+        )}
         {items.map((data) => (
-          <Card
-            className="rounded-md mt-4 border border-gray-200"
+          <div
+            className="rounded-xl mt-4 border-2 border-gray-200"
             key={data.id}
           >
-            <h3 className="text-xl font-medium mb-1 mt-0">
-              {formatDate(data.Next_Due_Date)}
-            </h3>
-            <p className="text-base font-normal">{data.PM_Description}</p>
-          </Card>
+            <div className="text-xl font-medium mt-0 border-b border-gray-200">
+              <h3 className="p-3 flex items-center rounded-t-xl text-white bg-gray-500 text-base">
+                <i className="pi pi-calendar text-lg mr-2"></i>
+                {formatDate(data.Next_Due_Date)}
+              </h3>
+            </div>
+            <p className="text-base font-normal p-3">{data.PM_Description}</p>
+          </div>
         ))}
       </div>
     ));
-
   return (
     <div className="p-8">
       <div className="w-full flex justify-center items-start gap-4 mb-4">
@@ -679,24 +693,8 @@ const Table = ({ result }) => {
           </IconField>
 
           <div>
-            {dataToDisplay.length ? (
-              allDataFilter ? (
-                renderGroupedData()
-              ) : (
-                dataToDisplay.map((data) => (
-                  <Card
-                    key={data.id}
-                    className="rounded-md mt-4 border border-gray-200"
-                  >
-                    <h3 className="text-xl font-medium mb-1 mt-0">
-                      {formatDate(data.Next_Due_Date)}
-                    </h3>
-                    <p className="text-base font-normal">
-                      {data.PM_Description}
-                    </p>
-                  </Card>
-                ))
-              )
+            {dataToDisplay?.length ? (
+              renderGroupedData()
             ) : (
               <p className="text-lg font-medium">Nothing to Show!</p>
             )}
@@ -716,11 +714,11 @@ const Table = ({ result }) => {
           rowExpansionTemplate={rowExpansionTemplate}
           dataKey="label"
         >
-          <Column expander style={{ width: "3rem" }} />
+          <Column expander style={{ width: "2rem" }} />
           <Column
             field="label"
             header="Cost Type"
-            style={{ minWidth: "145px", textAlign: "start", fontSize: "17px" }}
+            style={{ minWidth: "145px", textAlign: "start", fontSize: "16px" }}
           />
           {getTotalColumnComponents()}
         </DataTable>
@@ -728,12 +726,12 @@ const Table = ({ result }) => {
     </div>
   );
 };
+
 export async function getServerSideProps() {
   try {
     const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
     const accountId = process.env.NEXT_PUBLIC_ACCOUNT_ID;
     const formId = process.env.NEXT_PUBLIC_FORM_ID;
-
     const response = await fetch(
       `${baseURL}/form/2/${accountId}/${formId}/list?page_size=100`,
       {
@@ -745,7 +743,6 @@ export async function getServerSideProps() {
         },
       }
     );
-
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
