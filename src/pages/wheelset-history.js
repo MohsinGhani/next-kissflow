@@ -5,6 +5,7 @@ import "primereact/resources/themes/saga-blue/theme.css";
 import "primereact/resources/primereact.min.css";
 import "primeicons/primeicons.css";
 
+// Transform data to flatten nested objects
 const transformData = (data) =>
   data.map(({ Locomotive_Number, Work_Order, ...rest }) => ({
     ...rest,
@@ -15,6 +16,7 @@ const transformData = (data) =>
     Work_Order_Number: Work_Order?.wonum || "-",
   }));
 
+// Generate dynamic columns and prioritize certain fields
 const getColumns = (data) => {
   if (!data.length) return [];
 
@@ -29,6 +31,7 @@ const getColumns = (data) => {
     (key) => !key.toLowerCase().includes("_id") && !priorityFields.includes(key)
   );
 
+  // Combine priority and remaining fields
   const allFields = [...priorityFields, ...remainingFields];
 
   return allFields.map((key) => ({
@@ -50,9 +53,9 @@ const MyDataTable = ({ result }) => {
         <DataTable
           showGridlines
           value={flattenedData}
-          paginator
           paginatorLeft
-          rows={5}
+          paginator
+          rows={10}
           rowsPerPageOptions={[5, 10, 25, 50]}
         >
           {columns.map((col) => (
@@ -60,7 +63,13 @@ const MyDataTable = ({ result }) => {
               key={col.field}
               field={col.field}
               header={col.header}
-              style={{ padding: "13px", minWidth: "200px" }}
+              style={{
+                padding: "13px",
+                minWidth:
+                  col.field === "Name" || col.field === "Work_Order_Name"
+                    ? "300px"
+                    : "200px",
+              }}
               body={(rowData) => rowData[col.field] || "-"}
             />
           ))}
