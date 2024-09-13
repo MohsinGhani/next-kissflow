@@ -1,77 +1,104 @@
-import React from "react";
-import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
-import "primereact/resources/themes/saga-blue/theme.css";
-import "primereact/resources/primereact.min.css";
-import "primeicons/primeicons.css";
+import { DataTable } from "primereact/datatable";
+import { useState } from "react";
 
-// Transform data to flatten nested objects
-const transformData = (data) =>
-  data.map(({ Locomotive_Number, Work_Order, ...rest }) => ({
-    ...rest,
-    Name: Locomotive_Number?.Name || "-",
-    Homologation_Date: Locomotive_Number?.Homologation_Date || "-",
-    Locomotive_Number: Locomotive_Number?.Locomotive_Number || "-",
-    Work_Order_Name: Work_Order?.Name || "-",
-    Work_Order_Number: Work_Order?.wonum || "-",
-  }));
-
-// Generate dynamic columns and prioritize certain fields
-const getColumns = (data) => {
-  if (!data.length) return [];
-
-  const priorityFields = [
-    "Locomotive_Number",
-    "Homologation_Date",
-    "Work_Order_Number",
-  ];
-
-  const firstItem = data[0];
-  const remainingFields = Object.keys(firstItem).filter(
-    (key) => !key.toLowerCase().includes("_id") && !priorityFields.includes(key)
+const transformAndGroupData = (data) => {
+  const transformedData = data.map(
+    ({ Locomotive_Number, Work_Order, ...rest }) => ({
+      ...rest,
+      Name: Locomotive_Number?.Name || "-",
+      Homologation_Date: Locomotive_Number?.Homologation_Date || "-",
+      Locomotive_Number: Locomotive_Number?.Locomotive_Number || "-",
+      Locomotive_id: Locomotive_Number?._id || "-",
+      Work_Order_Name: Work_Order?.Name || "-",
+      Work_Order_Number: Work_Order?.wonum || "-",
+      Date: rest?.date || "-",
+      D_LEFT: rest?.D_LEFT || 0,
+      D_RIGHT: rest?.D_RIGHT || 0,
+    })
   );
 
-  // Combine priority and remaining fields
-  const allFields = [...priorityFields, ...remainingFields];
+  const groupedData = {};
+  console.log(transformedData, "transaform Data");
+  transformedData.forEach((item) => {
+    const dateKey = item.Measure_Date || "-";
 
-  return allFields.map((key) => ({
-    field: key,
-    header: key
-      .replace(/_/g, " ")
-      .replace(/\b[a-z]/g, (char) => char.toUpperCase()),
-  }));
+    if (!groupedData[dateKey]) {
+      groupedData[dateKey] = {
+        Description: item.Description || "-",
+        Measure_Date: item.Measure_Date || "-",
+        Locomotive_Number: item.Locomotive_Number || "-",
+        Locomotive_Number_id: item.Locomotive_Number_id || "-",
+        Homologation_Date: item.Homologation_Date || "-",
+        Work_Order_Name: item.Work_Order_Name || "-",
+        D1_LEFT: null,
+        D1_RIGHT: null,
+        D2_LEFT: null,
+        D2_RIGHT: null,
+        D3_LEFT: null,
+        D3_RIGHT: null,
+        D4_LEFT: null,
+        D4_RIGHT: null,
+      };
+    }
+
+    const position = item.Position;
+    console.log(item.Measure_Date);
+    if (position === "Position 1") {
+      groupedData[dateKey]["D1_LEFT"] = item.D_LEFT || 0;
+      groupedData[dateKey]["D1_RIGHT"] = item.D_RIGHT || 0;
+    } else if (position === "Position 2") {
+      groupedData[dateKey]["D2_LEFT"] = item.D_LEFT || 0;
+      groupedData[dateKey]["D2_RIGHT"] = item.D_RIGHT || 0;
+    } else if (position === "Position 3") {
+      groupedData[dateKey]["D3_LEFT"] = item.D_LEFT || 0;
+      groupedData[dateKey]["D3_RIGHT"] = item.D_RIGHT || 0;
+    } else if (position === "Position 4") {
+      groupedData[dateKey]["D4_LEFT"] = item.D_LEFT || 0;
+      groupedData[dateKey]["D4_RIGHT"] = item.D_RIGHT || 0;
+    }
+  });
+
+  return Object.values(groupedData);
 };
 
-const MyDataTable = ({ result }) => {
-  const flattenedData = transformData(result.Data);
-  const columns = getColumns(flattenedData);
+const getColumns = () => [
+  { field: "Description", header: "Description" },
+  { field: "Measure_Date", header: "Measure Date" },
+  { field: "D1_LEFT", header: "D1 LEFT" },
+  { field: "D1_RIGHT", header: "D1 RIGHT" },
+  { field: "D2_LEFT", header: "D2 LEFT" },
+  { field: "D2_RIGHT", header: "D2 RIGHT" },
+  { field: "D3_LEFT", header: "D3 LEFT" },
+  { field: "D3_RIGHT", header: "D3 RIGHT" },
+  { field: "D4_LEFT", header: "D4 LEFT" },
+  { field: "D4_RIGHT", header: "D4 RIGHT" },
+];
 
+const DataTableComponent = ({ result }) => {
+  const [selectedRow, setSelectedRow] = useState(null);
+
+  const transformedGroupedData = transformAndGroupData(result.Data);
+  const columns = getColumns();
+  console.log(result.Data);
   return (
     <div className="flex justify-center p-14 flex-col">
       <h2 className="text-xl font-semibold my-3">History 119 001-5</h2>
       <div className="w-full">
         <DataTable
+          value={transformedGroupedData}
           showGridlines
-          value={flattenedData}
-          paginatorLeft
           paginator
+          paginatorLeft
           rows={10}
           rowsPerPageOptions={[5, 10, 25, 50]}
+          dataKey="Measure_Date"
+          selectionMode="single"
+          selection={selectedRow}
+          onSelectionChange={(e) => setSelectedRow(e.value)}
         >
-          {columns.map((col) => (
-            <Column
-              key={col.field}
-              field={col.field}
-              header={col.header}
-              style={{
-                padding: "13px",
-                minWidth:
-                  col.field === "Name" || col.field === "Work_Order_Name"
-                    ? "300px"
-                    : "200px",
-              }}
-              body={(rowData) => rowData[col.field] || "-"}
-            />
+          {columns.map((col, i) => (
+            <Column key={i} field={col.field} header={col.header} />
           ))}
         </DataTable>
       </div>
@@ -115,4 +142,4 @@ export async function getServerSideProps() {
   }
 }
 
-export default MyDataTable;
+export default DataTableComponent;
