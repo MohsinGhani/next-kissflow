@@ -733,7 +733,7 @@ export async function getServerSideProps() {
     const accountId = process.env.NEXT_PUBLIC_ACCOUNT_ID;
     const formId = process.env.NEXT_PUBLIC_FORM_ID;
     const response = await fetch(
-      `${baseURL}/form/2/${accountId}/${formId}/list?page_size=100`,
+      `${baseURL}/form/2/${accountId}/${formId}/list?page_size=5000`,
       {
         method: "GET",
         headers: {

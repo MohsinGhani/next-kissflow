@@ -1,6 +1,15 @@
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
 import { useState } from "react";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  YAxis,
+  XAxis,
+  Tooltip as RechartsTooltip,
+} from "recharts";
 
 const transformAndGroupData = (data) => {
   const transformedData = data.map(
@@ -18,49 +27,54 @@ const transformAndGroupData = (data) => {
     })
   );
 
-  const groupedData = {};
-  console.log(transformedData, "transaform Data");
-  transformedData.forEach((item) => {
+  const groupedData = transformedData.reduce((acc, item) => {
     const dateKey = item.Measure_Date || "-";
-
-    if (!groupedData[dateKey]) {
-      groupedData[dateKey] = {
+    if (!acc[dateKey]) {
+      acc[dateKey] = {
         Description: item.Description || "-",
         Measure_Date: item.Measure_Date || "-",
         Locomotive_Number: item.Locomotive_Number || "-",
         Locomotive_Number_id: item.Locomotive_Number_id || "-",
         Homologation_Date: item.Homologation_Date || "-",
         Work_Order_Name: item.Work_Order_Name || "-",
-        D1_LEFT: null,
-        D1_RIGHT: null,
-        D2_LEFT: null,
-        D2_RIGHT: null,
-        D3_LEFT: null,
-        D3_RIGHT: null,
-        D4_LEFT: null,
-        D4_RIGHT: null,
+        D1_LEFT: 0,
+        D1_RIGHT: 0,
+        D2_LEFT: 0,
+        D2_RIGHT: 0,
+        D3_LEFT: 0,
+        D3_RIGHT: 0,
+        D4_LEFT: 0,
+        D4_RIGHT: 0,
       };
     }
+    acc[dateKey][`D${item.Position?.split(" ")[1]}_LEFT`] = item.D_LEFT || 0;
+    acc[dateKey][`D${item.Position?.split(" ")[1]}_RIGHT`] = item.D_RIGHT || 0;
 
-    const position = item.Position;
-    console.log(item.Measure_Date);
-    if (position === "Position 1") {
-      groupedData[dateKey]["D1_LEFT"] = item.D_LEFT || 0;
-      groupedData[dateKey]["D1_RIGHT"] = item.D_RIGHT || 0;
-    } else if (position === "Position 2") {
-      groupedData[dateKey]["D2_LEFT"] = item.D_LEFT || 0;
-      groupedData[dateKey]["D2_RIGHT"] = item.D_RIGHT || 0;
-    } else if (position === "Position 3") {
-      groupedData[dateKey]["D3_LEFT"] = item.D_LEFT || 0;
-      groupedData[dateKey]["D3_RIGHT"] = item.D_RIGHT || 0;
-    } else if (position === "Position 4") {
-      groupedData[dateKey]["D4_LEFT"] = item.D_LEFT || 0;
-      groupedData[dateKey]["D4_RIGHT"] = item.D_RIGHT || 0;
-    }
-  });
+    return acc;
+  }, {});
 
-  return Object.values(groupedData);
+  return Object.values(groupedData).sort(
+    (a, b) => new Date(a.Measure_Date) - new Date(b.Measure_Date)
+  );
 };
+
+const Chart = ({ data, dataKey, label }) => (
+  <div className="my-4 w-full " style={{ height: "400px" }}>
+    <h3 className="my-5">{label}</h3>
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis
+          dataKey="Measure_Date"
+          tickFormatter={(date) => new Date(date).toLocaleDateString()}
+        />
+        <YAxis />
+        <RechartsTooltip />
+        <Line type="monotone" dataKey={dataKey} stroke="#8884d8" />
+      </LineChart>
+    </ResponsiveContainer>
+  </div>
+);
 
 const getColumns = () => [
   { field: "Description", header: "Description" },
@@ -76,12 +90,34 @@ const getColumns = () => [
 ];
 
 const DataTableComponent = ({ result }) => {
-  const [selectedRow, setSelectedRow] = useState(null);
+  const [showGraph, setShowGraph] = useState(false);
 
   const transformedGroupedData = transformAndGroupData(result.Data);
   const columns = getColumns();
+  const charts = [
+    { dataKey: "D1_LEFT", label: "D1 LEFT" },
+    { dataKey: "D1_RIGHT", label: "D1 RIGHT" },
+    { dataKey: "D2_LEFT", label: "D2 LEFT" },
+    { dataKey: "D2_RIGHT", label: "D2 RIGHT" },
+    { dataKey: "D3_LEFT", label: "D3 LEFT" },
+    { dataKey: "D3_RIGHT", label: "D3 RIGHT" },
+    { dataKey: "D4_LEFT", label: "D4 LEFT" },
+    { dataKey: "D4_RIGHT", label: "D4 RIGHT" },
+  ];
+
   return (
-    <div className="flex justify-center p-14 flex-col">
+    <div className="flex flex-col p-14">
+      <div className="w-full flex justify-end">
+        <button
+          onClick={() => setShowGraph(!showGraph)}
+          className="border border-gray-200 my-2 rounded-md p-3 px-6 text-lg flex items-center"
+        >
+          {showGraph ? "Hide Graph" : "Show Graph"}
+          <i
+            className={`pi ${showGraph ? "pi-angle-up" : "pi-angle-down"} ml-3`}
+          />
+        </button>
+      </div>
       <div className="w-full">
         <DataTable
           value={transformedGroupedData}
@@ -92,14 +128,24 @@ const DataTableComponent = ({ result }) => {
           rowsPerPageOptions={[5, 10, 25, 50]}
           dataKey="Measure_Date"
           selectionMode="single"
-          selection={selectedRow}
-          onSelectionChange={(e) => setSelectedRow(e.value)}
         >
           {columns.map((col, i) => (
             <Column key={i} field={col.field} header={col.header} />
           ))}
         </DataTable>
       </div>
+      {showGraph && (
+        <div className="grid grid-cols-2 my-3 p-3 gap-12 border border-gray-100">
+          {charts.map((chart, index) => (
+            <Chart
+              key={index}
+              data={transformedGroupedData}
+              dataKey={chart.dataKey}
+              label={chart.label}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -111,7 +157,7 @@ export async function getServerSideProps() {
     const formId = process.env.NEXT_PUBLIC_WHEELSET_MEASURMENT_FORM_ID;
 
     const response = await fetch(
-      `${baseURL}/form/2/${accountId}/${formId}/list?page_size=1000`,
+      `${baseURL}/form/2/${accountId}/${formId}/list?page_size=5000`,
       {
         method: "GET",
         headers: {
