@@ -80,10 +80,8 @@ const DataTableComponent = ({ result }) => {
 
   const transformedGroupedData = transformAndGroupData(result.Data);
   const columns = getColumns();
-  console.log(result.Data);
   return (
     <div className="flex justify-center p-14 flex-col">
-      <h2 className="text-xl font-semibold my-3">History 119 001-5</h2>
       <div className="w-full">
         <DataTable
           value={transformedGroupedData}
