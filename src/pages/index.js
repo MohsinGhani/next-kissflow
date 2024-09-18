@@ -7,10 +7,14 @@ import moment from "moment";
 import { Calendar } from "primereact/calendar";
 import { FloatLabel } from "primereact/floatlabel";
 import { Button } from "primereact/button";
+import { DataTable } from "primereact/datatable";
+import { Column } from "primereact/column";
+import { CSVLink, CSVDownload } from "react-csv";
 
 export default function Home({ result }) {
   const [selectedLocoNumbers, setSelectedLocoNumbers] = useState([]);
   const [locomotiveNumbers, setLocomotiveNumbers] = useState([]);
+  const [tableView, setTableView] = useState(false);
   const [dates, setDates] = useState(null);
 
   useEffect(() => {
@@ -41,7 +45,6 @@ export default function Home({ result }) {
   const customizedContent = (item) => {
     const { _id, WO_Number, Next_Due_Date, PM_Description, Loco_Description } =
       item;
-
     const futureDate = getDateAfterDays(60);
     const currentDate = moment().startOf("day");
     const dueDate = moment(Next_Due_Date, "YYYY-MM-DD");
@@ -57,6 +60,7 @@ export default function Home({ result }) {
     const daysDifference = dueDate.diff(currentDate, "days");
 
     let daysText = "";
+
     if (daysDifference > 0) {
       if (daysDifference > 365) {
         const years = Math.floor(daysDifference / 365);
@@ -86,6 +90,7 @@ export default function Home({ result }) {
         const days = Math.floor(daysDifference / 7);
         daysText = `${pastDaysDifference} day${days !== 1 ? "s" : ""} ago`;
       }
+      console.log(daysText, "day text");
     }
 
     return (
@@ -178,7 +183,6 @@ export default function Home({ result }) {
       );
     }
   };
-
   const filteredData = (result?.Data || [])
     .filter((item) => {
       const matchesLocoNumber =
@@ -202,6 +206,7 @@ export default function Home({ result }) {
 
       return dateA.isAfter(dateB) ? 1 : dateA.isBefore(dateB) ? -1 : 0;
     });
+  const handleData = (rowData, field) => rowData[field] || "-";
 
   return (
     <div className="timeline-container pt-8">
@@ -254,18 +259,75 @@ export default function Home({ result }) {
           </div>
         </div>
       </div>
+
       <div className="data-timeline-container">
-        <div className="max-w-full">
-          <Timeline
-            value={filteredData}
-            content={customizedContent}
-            align="alternate"
-            layout="horizontal"
-            opposite={<span>&nbsp;</span>}
-            className="data-timeline"
-            marker={customizedMarker}
-          />
-        </div>
+        {tableView ? (
+          <div className="w-4/6 ">
+            <div className="w-full gap-4 justify-end flex my-2 ">
+              <div>
+                <Button
+                  onClick={() => setTableView((prev) => !prev)}
+                  className="bg-primary border-primary px-4 py-[8px] text-sm flex-1 text-white rounded-md"
+                >
+                  Switch to Timeline View
+                </Button>
+              </div>
+              <CSVLink
+                data={filteredData}
+                className="bg-primary border-primary px-4 py-[8px] text-sm text-white rounded-md"
+              >
+                Download Table
+              </CSVLink>
+            </div>
+            <DataTable
+              style={{ border: "1px solid #e6e6e6" }}
+              showGridlines
+              value={filteredData}
+              paginatorLeft
+              paginator
+              rows={10}
+              rowsPerPageOptions={[10, 30, 40, 50]}
+              tableStyle={{ minWidth: "50rem", borderRadius: "50px" }}
+            >
+              {[
+                "Loco_Description",
+                "Next_Due_Date",
+                "WO_Number",
+                "Description",
+              ].map((field) => (
+                <Column
+                  key={field}
+                  field={field}
+                  header={field
+                    .replace(/_/g, " ")
+                    .replace(/\b\w/g, (char) => char.toUpperCase())}
+                  body={(rowData) => handleData(rowData, field)}
+                  className={field !== "Description" && "w-64"}
+                />
+              ))}
+            </DataTable>
+          </div>
+        ) : (
+          <div className="max-w-full">
+            <div className="text-end w-10/12 ">
+              <Button
+                onClick={() => setTableView((prev) => !prev)}
+                className="bg-primary border-primary px-5 py-[8px] text-sm flex-1 text-white rounded-md"
+              >
+                Switch to Table View
+              </Button>
+            </div>
+            <Timeline
+              value={filteredData}
+              content={customizedContent}
+              align="alternate"
+              layout="horizontal"
+              opposite={<span>&nbsp;</span>}
+              className="data-timeline"
+              marker={customizedMarker}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
