@@ -90,7 +90,6 @@ export default function Home({ result }) {
         const days = Math.floor(daysDifference / 7);
         daysText = `${pastDaysDifference} day${days !== 1 ? "s" : ""} ago`;
       }
-      console.log(daysText, "day text");
     }
 
     return (
@@ -107,7 +106,10 @@ export default function Home({ result }) {
                   : "green-card"
               }`}
             >
-              <h3 className="font-lato text-xl font-bold text-black">
+              <h3
+                className="card-title font-lato text-xl font-bold text-black"
+                title={Loco_Description}
+              >
                 {Loco_Description}
               </h3>
               {daysDifference !== 0 && (
@@ -142,7 +144,10 @@ export default function Home({ result }) {
         ) : (
           <>
             <Card key={_id} className="simple-card">
-              <h3 className="font-lato text-xl font-bold text-black">
+              <h3
+                className="card-title font-lato text-xl font-bold text-black"
+                title={Loco_Description}
+              >
                 {Loco_Description}
               </h3>
               {daysDifference !== 0 && (
@@ -334,37 +339,102 @@ export default function Home({ result }) {
 }
 
 export async function getServerSideProps() {
+  const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
+  const accountId = process.env.NEXT_PUBLIC_ACCOUNT_ID;
+  const formId = process.env.NEXT_PUBLIC_FORM_ID;
+  const pageSize = 100;
+  let allData = [];
+  let page = 1;
+
   try {
-    const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
-    const accountId = process.env.NEXT_PUBLIC_ACCOUNT_ID;
-    const formId = process.env.NEXT_PUBLIC_FORM_ID;
+    while (true) {
+      const response = await fetch(
+        `${baseURL}/form/2/${accountId}/${formId}/list?page_number=${page}&page_size=${pageSize}`,
+        {
+          method: "GET",
+          headers: {
+            "X-Access-Key-Id": process.env.NEXT_PUBLIC_ACCESS_KEY_ID,
+            "X-Access-Key-Secret": process.env.NEXT_PUBLIC_ACCESS_KEY_SECRET,
+            accept: "application/json",
+          },
+        }
+      );
 
-    const response = await fetch(
-      `${baseURL}/form/2/${accountId}/${formId}/list?page_size=5000`,
-      {
-        method: "GET",
-        headers: {
-          "X-Access-Key-Id": process.env.NEXT_PUBLIC_ACCESS_KEY_ID,
-          "X-Access-Key-Secret": process.env.NEXT_PUBLIC_ACCESS_KEY_SECRET,
-          accept: "application/json",
-        },
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const result = await response.json();
+
+      if (result.Data && result.Data.length > 0) {
+        allData = allData.concat(result.Data);
+      } else {
+        break;
+      }
+
+      page++;
     }
 
-    const result = await response.json();
-
     return {
-      props: { result },
+      props: { result: { Data: allData } },
     };
   } catch (error) {
-    console.log("Failed to fetch KissFlow API data:", error);
+    console.error("Failed to fetch KissFlow API data:", error);
 
     return {
       props: { result: { Data: [] } },
     };
   }
 }
+
+// export async function getServerSideProps() {
+//   try {
+//     const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
+//     const accountId = process.env.NEXT_PUBLIC_ACCOUNT_ID;
+//     const formId = process.env.NEXT_PUBLIC_FORM_ID;
+//     let allData = [];
+//     let pageSize = 100; // Adjust as needed or set to the maximum allowed
+
+//     while (true) {
+//       const response = await fetch(
+//         `${baseURL}/form/2/${accountId}/${formId}/list?page_size=${pageSize}`,
+//         {
+//           method: "GET",
+//           headers: {
+//             "X-Access-Key-Id": process.env.NEXT_PUBLIC_ACCESS_KEY_ID,
+//             "X-Access-Key-Secret": process.env.NEXT_PUBLIC_ACCESS_KEY_SECRET,
+//             accept: "application/json",
+//           },
+//         }
+//       );
+
+//       if (!response.ok) {
+//         throw new Error(`HTTP error! status: ${response.status}`);
+//       }
+
+//       const result = await response.json();
+
+//       console.log("🚀 ~ result:", result.Data.length);
+
+//       // Assuming 'Data' is the array containing the records
+//       allData = allData.concat(result.Data);
+
+//       // Break the loop if there are no more records
+//       if (result.Data.length < pageSize) {
+//         break;
+//       }
+
+//       pageSize++;
+//     }
+
+//     return {
+//       props: { result: { Data: allData } },
+//     };
+//   } catch (error) {
+//     console.log("Failed to fetch KissFlow API data:", error);
+
+//     return {
+//       props: { result: { Data: [] } },
+//     };
+//   }
+// }

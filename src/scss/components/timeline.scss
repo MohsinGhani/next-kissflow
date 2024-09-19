@@ -57,6 +57,13 @@
             box-shadow: 0 2px 24px 0 rgba(219, 219, 219, 0.25);
             border: 1px solid #e6e6e6;
             border-radius: 8px;
+            .card-title {
+              display: -webkit-box;
+              line-clamp: 1;
+              -webkit-line-clamp: 1;
+              -webkit-box-orient: vertical;
+              overflow: hidden;
+            }
             .card-description {
               display: -webkit-box;
               line-clamp: 5;
@@ -67,7 +74,7 @@
           }
           .green-card {
             box-shadow: 0 2px 32px 0 #e8ffea;
-            border: 1px solid  var(--secondary);
+            border: 1px solid var(--secondary);
             background-color: #fafffa;
           }
           .yellow-card {
@@ -77,10 +84,10 @@
           }
         }
       }
-    }
-    :nth-child(even) {
-      .p-timeline-event-content {
-        align-items: end;
+      :nth-child(even) {
+        .p-timeline-event-content {
+          align-items: end;
+        }
       }
     }
   }
