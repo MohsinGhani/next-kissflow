@@ -175,7 +175,7 @@ const DataTableComponent = ({ result }) => {
 
       const link = document.createElement("a");
       link.href = url;
-      link.download = "modified.pdf";
+      link.download = "Wheel_inspection_report.pdf";
       link.click();
 
       URL.revokeObjectURL(url);
