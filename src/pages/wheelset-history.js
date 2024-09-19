@@ -1,6 +1,6 @@
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CartesianGrid,
   Line,
@@ -10,11 +10,11 @@ import {
   XAxis,
   Tooltip as RechartsTooltip,
 } from "recharts";
+import { PDFDocument, rgb } from "pdf-lib";
 
 const transformAndGroupData = (data) => {
   const transformedData = data.map(
     ({ Locomotive_Number, Work_Order, ...rest }) => ({
-      ...rest,
       Name: Locomotive_Number?.Name || "-",
       Homologation_Date: Locomotive_Number?.Homologation_Date || "-",
       Locomotive_Number: Locomotive_Number?.Locomotive_Number || "-",
@@ -24,6 +24,7 @@ const transformAndGroupData = (data) => {
       Date: rest?.date || "-",
       D_LEFT: rest?.D_LEFT || 0,
       D_RIGHT: rest?.D_RIGHT || 0,
+      ...rest,
     })
   );
 
@@ -34,7 +35,7 @@ const transformAndGroupData = (data) => {
         Description: item.Description || "-",
         Measure_Date: item.Measure_Date || "-",
         Locomotive_Number: item.Locomotive_Number || "-",
-        Locomotive_Number_id: item.Locomotive_Number_id || "-",
+        Locomotive_Number_id: item.Locomotive_id || "-",
         Homologation_Date: item.Homologation_Date || "-",
         Work_Order_Name: item.Work_Order_Name || "-",
         D1_LEFT: 0,
@@ -47,8 +48,15 @@ const transformAndGroupData = (data) => {
         D4_RIGHT: 0,
       };
     }
-    acc[dateKey][`D${item.Position?.split(" ")[1]}_LEFT`] = item.D_LEFT || 0;
-    acc[dateKey][`D${item.Position?.split(" ")[1]}_RIGHT`] = item.D_RIGHT || 0;
+
+    const pos = item.Position?.split(" ")[1];
+    const positions = ["D", "H", "QR", "SH", "SD", "SR"];
+
+    positions.forEach((type) => {
+      const prefix = `${type}${pos}`;
+      acc[dateKey][`${prefix}_LEFT`] = item[`${type}_LEFT`] || 0;
+      acc[dateKey][`${prefix}_RIGHT`] = item[`${type}_RIGHT`] || 0;
+    });
 
     return acc;
   }, {});
@@ -91,6 +99,90 @@ const getColumns = () => [
 
 const DataTableComponent = ({ result }) => {
   const [showGraph, setShowGraph] = useState(false);
+  const [selectedRow, setSelectedRow] = useState(null);
+  const [pdfFile, setPdfFile] = useState(null);
+  const pdfUrlLocal = "/wheelSetForm.pdf";
+
+  useEffect(() => {
+    (async () => {
+      const response = await fetch(pdfUrlLocal);
+      const arrayBuffer = await response.arrayBuffer();
+      setPdfFile(arrayBuffer);
+    })();
+  }, []);
+
+  const modifyAndDownloadPdf = async () => {
+    if (!pdfFile) return;
+
+    try {
+      const pdfDoc = await PDFDocument.load(pdfFile);
+      const page = pdfDoc.getPages()[0];
+
+      const {
+        Locomotive_Number: locoNumber,
+        Mileage,
+        Operating_Company: companyText,
+      } = selectedRow;
+
+      const positions = [
+        { name: "SD", y: 375 },
+        { name: "SH", y: 355 },
+        { name: "QR", y: 338 },
+        { name: "D", y: 320 },
+        { name: "H", y: 300 },
+      ];
+      const textToDraw = [
+        { text: locoNumber, x: 420, y: 750, size: 10 },
+        { text: companyText, x: 150, y: 720, size: 10 },
+        { text: Mileage, x: 420, y: 720, size: 10 },
+      ];
+      textToDraw.forEach(({ text, x, y, size }) => {
+        page.drawText(text?.toString() || "-", {
+          x,
+          y,
+          size,
+          color: rgb(0, 0, 0),
+        });
+      });
+      const drawTextGroup = (groupName, y) => {
+        for (let i = 1; i <= 4; i++) {
+          const left = selectedRow[`${groupName}${i}_LEFT`];
+          const right = selectedRow[`${groupName}${i}_RIGHT`];
+          const leftX = 140 + (i - 1) * 100;
+          const rightX = 190 + (i - 1) * 100;
+
+          page.drawText(left?.toString() || "-", {
+            x: leftX,
+            y,
+            size: 8,
+            color: rgb(0, 0, 0),
+          });
+          page.drawText(right?.toString() || "-", {
+            x: rightX,
+            y,
+            size: 8,
+            color: rgb(0, 0, 0),
+          });
+        }
+      };
+
+      positions.forEach((pos) => drawTextGroup(pos.name, pos.y));
+
+      const pdfBytes = await pdfDoc.save();
+
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "modified.pdf";
+      link.click();
+
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error modifying PDF:", error);
+    }
+  };
 
   const transformedGroupedData = transformAndGroupData(result.Data);
   const columns = getColumns();
@@ -104,13 +196,32 @@ const DataTableComponent = ({ result }) => {
     { dataKey: "D4_LEFT", label: "D4 LEFT" },
     { dataKey: "D4_RIGHT", label: "D4 RIGHT" },
   ];
+  console.log(selectedRow);
+  console.log(result.Data);
+  const handleRowClick = (e) => {
+    const updatedData = {
+      ...e.data,
+      Locomotive_Number: "Loco-v1",
+      Company_Operator: "Company Name",
+      Mileage: "1000 km",
+      Operating_Company: "Operating Company Name",
+    };
+    setSelectedRow(updatedData);
+  };
 
   return (
     <div className="flex flex-col p-14">
-      <div className="w-full flex justify-end">
+      <div className="w-full flex justify-end gap-2">
+        <button
+          onClick={modifyAndDownloadPdf}
+          disabled={selectedRow === null}
+          className="border border-gray-200 my-2 rounded-md p-2 px-3 text-lg flex items-center"
+        >
+          Download Report
+        </button>
         <button
           onClick={() => setShowGraph(!showGraph)}
-          className="border border-gray-200 my-2 rounded-md p-3 px-6 text-lg flex items-center"
+          className="border border-gray-200 my-2 rounded-md p-2 px-6 text-lg flex items-center"
         >
           {showGraph ? "Hide Graph" : "Show Graph"}
           <i
@@ -128,6 +239,7 @@ const DataTableComponent = ({ result }) => {
           rowsPerPageOptions={[5, 10, 25, 50]}
           dataKey="Measure_Date"
           selectionMode="single"
+          onRowClick={handleRowClick}
         >
           {columns.map((col, i) => (
             <Column key={i} field={col.field} header={col.header} />
