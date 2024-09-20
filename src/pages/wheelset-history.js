@@ -141,7 +141,7 @@ const DataTableComponent = ({ result }) => {
           x,
           y,
           size,
-          color: rgb(0, 0, 0),
+          color: rgb(0, 100 / 255, 0),
         });
       });
       const drawTextGroup = (groupName, y) => {
@@ -155,13 +155,13 @@ const DataTableComponent = ({ result }) => {
             x: leftX,
             y,
             size: 8,
-            color: rgb(0, 0, 0),
+            color: rgb(139 / 255, 0, 0),
           });
           page.drawText(right?.toString() || "-", {
             x: rightX,
             y,
             size: 8,
-            color: rgb(0, 0, 0),
+            color: rgb(139 / 255, 0, 0),
           });
         }
       };
@@ -196,11 +196,10 @@ const DataTableComponent = ({ result }) => {
     { dataKey: "D4_LEFT", label: "D4 LEFT" },
     { dataKey: "D4_RIGHT", label: "D4 RIGHT" },
   ];
-  console.log(selectedRow);
-  console.log(result.Data);
-  const handleRowClick = (e) => {
+  const handleRowClick = (rowData) => {
+    console.log(rowData, "clicked row data");
     const updatedData = {
-      ...e.data,
+      ...rowData,
       Locomotive_Number: "Loco-v1",
       Company_Operator: "Company Name",
       Mileage: "1000 km",
@@ -208,7 +207,8 @@ const DataTableComponent = ({ result }) => {
     };
     setSelectedRow(updatedData);
   };
-
+  console.log(result.Data, "result data");
+  console.log(transformedGroupedData, "rendred column");
   return (
     <div className="flex flex-col p-14">
       <div className="w-full flex justify-end gap-2">
@@ -234,18 +234,33 @@ const DataTableComponent = ({ result }) => {
           value={transformedGroupedData}
           showGridlines
           paginator
-          paginatorLeft
           rows={10}
+          paginatorLeft
           rowsPerPageOptions={[5, 10, 25, 50]}
           dataKey="Measure_Date"
           selectionMode="single"
-          onRowClick={handleRowClick}
         >
           {columns.map((col, i) => (
-            <Column key={i} field={col.field} header={col.header} />
+            <Column
+              key={i}
+              field={col.field}
+              header={col.header}
+              className="cursor-default"
+            />
           ))}
+
+          <Column
+            header="Action"
+            body={(rowData) => (
+              <i
+                onClick={() => handleRowClick(rowData)}
+                className="pi pi-file-export text-lg mx-4 cursor-pointer"
+              />
+            )}
+          />
         </DataTable>
       </div>
+
       {showGraph && (
         <div className="grid grid-cols-2 my-3 p-3 gap-12 border border-gray-100">
           {charts.map((chart, index) => (
