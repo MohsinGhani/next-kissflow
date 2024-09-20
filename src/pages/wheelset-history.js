@@ -278,34 +278,47 @@ const DataTableComponent = ({ result }) => {
 };
 
 export async function getServerSideProps() {
+  const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
+  const accountId = process.env.NEXT_PUBLIC_ACCOUNT_ID;
+  const formId = process.env.NEXT_PUBLIC_WHEELSET_MEASURMENT_FORM_ID;
+  const pageSize = 100;
+  let allData = [];
+  let page = 1;
+
   try {
-    const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
-    const accountId = process.env.NEXT_PUBLIC_ACCOUNT_ID;
-    const formId = process.env.NEXT_PUBLIC_WHEELSET_MEASURMENT_FORM_ID;
+    while (true) {
+      const response = await fetch(
+        `${baseURL}/form/2/${accountId}/${formId}/list?page_number=${page}&page_size=${pageSize}`,
+        {
+          method: "GET",
+          headers: {
+            "X-Access-Key-Id": process.env.NEXT_PUBLIC_ACCESS_KEY_ID,
+            "X-Access-Key-Secret": process.env.NEXT_PUBLIC_ACCESS_KEY_SECRET,
+            accept: "application/json",
+          },
+        }
+      );
 
-    const response = await fetch(
-      `${baseURL}/form/2/${accountId}/${formId}/list?page_size=5000`,
-      {
-        method: "GET",
-        headers: {
-          "X-Access-Key-Id": process.env.NEXT_PUBLIC_ACCESS_KEY_ID,
-          "X-Access-Key-Secret": process.env.NEXT_PUBLIC_ACCESS_KEY_SECRET,
-          accept: "application/json",
-        },
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const result = await response.json();
+
+      if (result.Data && result.Data.length > 0) {
+        allData = allData.concat(result.Data);
+      } else {
+        break;
+      }
+
+      page++;
     }
 
-    const result = await response.json();
-
     return {
-      props: { result },
+      props: { result: { Data: allData } },
     };
   } catch (error) {
-    console.log("Failed to fetch KissFlow API data:", error);
+    console.error("Failed to fetch KissFlow API data:", error);
 
     return {
       props: { result: { Data: [] } },

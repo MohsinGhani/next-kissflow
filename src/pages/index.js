@@ -92,6 +92,8 @@ export default function Home({ result }) {
       }
     }
 
+    console.log("🚀 ~ daysText:", daysText);
+
     return (
       <>
         {WO_Number ? (
@@ -386,55 +388,3 @@ export async function getServerSideProps() {
     };
   }
 }
-
-// export async function getServerSideProps() {
-//   try {
-//     const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
-//     const accountId = process.env.NEXT_PUBLIC_ACCOUNT_ID;
-//     const formId = process.env.NEXT_PUBLIC_FORM_ID;
-//     let allData = [];
-//     let pageSize = 100; // Adjust as needed or set to the maximum allowed
-
-//     while (true) {
-//       const response = await fetch(
-//         `${baseURL}/form/2/${accountId}/${formId}/list?page_size=${pageSize}`,
-//         {
-//           method: "GET",
-//           headers: {
-//             "X-Access-Key-Id": process.env.NEXT_PUBLIC_ACCESS_KEY_ID,
-//             "X-Access-Key-Secret": process.env.NEXT_PUBLIC_ACCESS_KEY_SECRET,
-//             accept: "application/json",
-//           },
-//         }
-//       );
-
-//       if (!response.ok) {
-//         throw new Error(`HTTP error! status: ${response.status}`);
-//       }
-
-//       const result = await response.json();
-
-//       console.log("🚀 ~ result:", result.Data.length);
-
-//       // Assuming 'Data' is the array containing the records
-//       allData = allData.concat(result.Data);
-
-//       // Break the loop if there are no more records
-//       if (result.Data.length < pageSize) {
-//         break;
-//       }
-
-//       pageSize++;
-//     }
-
-//     return {
-//       props: { result: { Data: allData } },
-//     };
-//   } catch (error) {
-//     console.log("Failed to fetch KissFlow API data:", error);
-
-//     return {
-//       props: { result: { Data: [] } },
-//     };
-//   }
-// }
