@@ -29,6 +29,7 @@ const transformAndGroupData = (data) => {
   );
 
   const groupedData = transformedData.reduce((acc, item) => {
+    console.log("groupedData:acc", acc)
     const dateKey = item.Measure_Date || "-";
     if (!acc[dateKey]) {
       acc[dateKey] = {
