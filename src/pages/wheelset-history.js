@@ -13,6 +13,7 @@ import {
 import { PDFDocument, rgb } from "pdf-lib";
 import { FloatLabel } from "primereact/floatlabel";
 import { MultiSelect } from "primereact/multiselect";
+import { Tooltip } from "primereact/tooltip";
 const transformAndGroupData = (data) => {
   const transformedData = data.map(
     ({ Locomotive_Number, Work_Order, ...rest }) => ({
@@ -197,12 +198,19 @@ const DataTableComponent = ({ result }) => {
     {
       field: "Description",
       header: "Description",
+
       body: (rowData) => (
-        <div className="flex justify-between mr-3">
+        <div className="flex justify-between min-w-20 mr-3 ">
+          <Tooltip target=".custom-target-icon" />
           {rowData.Description}
+
           <i
-            className="pi pi-file-pdf cursor-pointer text-xl"
-            onClick={() => handleRowClick(rowData)}
+            onClick={() => {
+              handleRowClick(rowData);
+            }}
+            className="custom-target-icon pi pi-file-pdf text-xl cursor-pointer"
+            data-pr-tooltip="Download Report"
+            data-pr-position="right"
           />
         </div>
       ),
@@ -243,9 +251,8 @@ const DataTableComponent = ({ result }) => {
           selectedLocoNumbers.includes(item.Description)
         )
       : transformedGroupedData;
-    console.log(filter, "filter");
     setFilteredData(filter);
-  }, [selectedLocoNumbers]);
+  }, [selectedLocoNumbers, filteredData]);
 
   return (
     <div className="flex flex-col p-14">
@@ -300,7 +307,9 @@ const DataTableComponent = ({ result }) => {
               field={col.field}
               header={col.header}
               body={col.body}
-              className="cursor-default"
+              className={`cursor-default ${
+                col.field === "Description" ? " w-[18rem]" : "w-40"
+              }`}
             />
           ))}
         </DataTable>
