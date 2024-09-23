@@ -122,11 +122,11 @@ const DataTableComponent = ({ result }) => {
       } = selectedRow;
 
       const positions = [
-        { name: "SD", y: 375 },
-        { name: "SH", y: 355 },
-        { name: "QR", y: 338 },
-        { name: "D", y: 320 },
-        { name: "H", y: 300 },
+        { name: "SD", y: 380 },
+        { name: "SH", y: 360 },
+        { name: "QR", y: 343 },
+        { name: "D", y: 325 },
+        { name: "H", y: 305 },
       ];
       const textToDraw = [
         { text: locoNumber, x: 420, y: 750, size: 10 },
