@@ -51,7 +51,8 @@
           }
           .simple-card,
           .green-card,
-          .yellow-card {
+          .yellow-card,
+          .service-card {
             width: 175px;
             height: fit-content;
             box-shadow: 0 2px 24px 0 rgba(219, 219, 219, 0.25);
@@ -81,6 +82,11 @@
             box-shadow: 0 2px 32px 0 #fffbf2;
             border: 1px solid var(--accent);
             background-color: #fffcf8;
+          }
+          .service-card {
+            box-shadow: 0 2px 32px 0 #fffbf2;
+            border: 1px solid var(--accent);
+            background-color: #e3e3e3;
           }
         }
       }
