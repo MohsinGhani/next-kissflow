@@ -11,7 +11,15 @@ import { Card } from "primereact/card";
 import { IconField } from "primereact/iconfield";
 import { InputIcon } from "primereact/inputicon";
 import { InputText } from "primereact/inputtext";
-
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  YAxis,
+  XAxis,
+  Tooltip as RechartsTooltip,
+} from "recharts";
 import { useRouter } from "next/router";
 
 const useQuarterMapping = () =>
@@ -219,7 +227,7 @@ const Table = ({ result }) => {
         },
       ],
     };
-    setGraphData(data);
+    setGraphData({ details, label }); // Set graph data correctly
     setShowGraph(true); // Show graph below the table
   };
 
@@ -659,6 +667,44 @@ const Table = ({ result }) => {
     );
   };
 
+  const [chartData, setChartData] = useState([]);
+  const Chart = ({ data, dataKey, label }) => {
+    return (
+      <div className="my-4 w-full" style={{ height: "400px" }}>
+        <h3 className="my-5">{label}</h3>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="year" tickFormatter={(year) => year} />
+            <YAxis />
+            <RechartsTooltip />
+            <Line type="monotone" dataKey={dataKey} stroke="#8884d8" />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  };
+
+  useEffect(() => {
+    if (graphData) {
+      console.log(graphData, "graphData");
+      const resultData = Object.entries(graphData.details).flatMap(
+        ([key, value]) => {
+          if (value.years) {
+            return Object.entries(value.years).map(([year, yearData]) => ({
+              year: year,
+              total: yearData.total || 0,
+            }));
+          }
+          return [];
+        }
+      );
+
+      const filteredResult = resultData.filter((item) => item.year);
+      setChartData(filteredResult);
+    }
+  }, [graphData]);
+
   const handleRowExpansion = (e) => {
     const costTypes = Object.keys(e.data || {}).filter(
       (key) => e.data[key] === true
@@ -783,6 +829,9 @@ const Table = ({ result }) => {
           {getTotalColumnComponents()}
         </DataTable>
       </div>
+      {graphData && (
+        <Chart data={chartData} dataKey="total" label={graphData.label} />
+      )}
     </div>
   );
 };
