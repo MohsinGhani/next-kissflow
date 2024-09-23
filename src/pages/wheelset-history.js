@@ -11,51 +11,59 @@ import {
   Tooltip as RechartsTooltip,
 } from "recharts";
 import { PDFDocument, rgb } from "pdf-lib";
-
+import { FloatLabel } from "primereact/floatlabel";
+import { MultiSelect } from "primereact/multiselect";
 const transformAndGroupData = (data) => {
   const transformedData = data.map(
     ({ Locomotive_Number, Work_Order, ...rest }) => ({
       Name: Locomotive_Number?.Name || "-",
-      Homologation_Date: Locomotive_Number?.Homologation_Date || "-",
-      Locomotive_Number: Locomotive_Number?.Locomotive_Number || "-",
       Locomotive_id: Locomotive_Number?._id || "-",
       Work_Order_Name: Work_Order?.Name || "-",
       Work_Order_Number: Work_Order?.wonum || "-",
-      Date: rest?.date || "-",
-      D_LEFT: rest?.D_LEFT || 0,
-      D_RIGHT: rest?.D_RIGHT || 0,
+      Measure_Date: rest.Measure_Date || "-",
+      D_LEFT: rest.D_LEFT || 0,
+      D_RIGHT: rest.D_RIGHT || 0,
+      Homologation_Date: Locomotive_Number?.Homologation_Date || "-",
+      Position: rest.Position || "-",
       ...rest,
     })
   );
 
   const groupedData = transformedData.reduce((acc, item) => {
-    const dateKey = item.Measure_Date || "-";
-    if (!acc[dateKey]) {
-      acc[dateKey] = {
-        Description: item.Description || "-",
-        Measure_Date: item.Measure_Date || "-",
-        Locomotive_Number: item.Locomotive_Number || "-",
-        Locomotive_Number_id: item.Locomotive_id || "-",
+    const { Measure_Date: dateKey = "-", Locomotive_id: locoIdKey = "-" } =
+      item;
+    const compositeKey = `${dateKey}_${locoIdKey}`;
+
+    if (!acc[compositeKey]) {
+      acc[compositeKey] = {
+        Description: item.Name || "-",
+        Measure_Date: dateKey,
+        Locomotive_Number: item.Locomotive_Number?.Locomotive_Number || "-",
+        Locomotive_id: locoIdKey,
         Homologation_Date: item.Homologation_Date || "-",
         Work_Order_Name: item.Work_Order_Name || "-",
-        D1_LEFT: 0,
-        D1_RIGHT: 0,
-        D2_LEFT: 0,
-        D2_RIGHT: 0,
-        D3_LEFT: 0,
-        D3_RIGHT: 0,
-        D4_LEFT: 0,
-        D4_RIGHT: 0,
+        ...Array.from({ length: 4 }, (_, i) => ({
+          [`D${i + 1}_LEFT`]: 0,
+          [`D${i + 1}_RIGHT`]: 0,
+          [`H${i + 1}_LEFT`]: 0,
+          [`H${i + 1}_RIGHT`]: 0,
+          [`QR${i + 1}_LEFT`]: 0,
+          [`QR${i + 1}_RIGHT`]: 0,
+          [`SH${i + 1}_LEFT`]: 0,
+          [`SH${i + 1}_RIGHT`]: 0,
+          [`SD${i + 1}_LEFT`]: 0,
+          [`SD${i + 1}_RIGHT`]: 0,
+          [`SR${i + 1}_LEFT`]: 0,
+          [`SR${i + 1}_RIGHT`]: 0,
+        })).reduce((acc, curr) => ({ ...acc, ...curr }), {}),
       };
     }
 
     const pos = item.Position?.split(" ")[1];
-    const positions = ["D", "H", "QR", "SH", "SD", "SR"];
-
-    positions.forEach((type) => {
+    ["D", "H", "QR", "SH", "SD", "SR"].forEach((type) => {
       const prefix = `${type}${pos}`;
-      acc[dateKey][`${prefix}_LEFT`] = item[`${type}_LEFT`] || 0;
-      acc[dateKey][`${prefix}_RIGHT`] = item[`${type}_RIGHT`] || 0;
+      acc[compositeKey][`${prefix}_LEFT`] += item[`${type}_LEFT`] || 0;
+      acc[compositeKey][`${prefix}_RIGHT`] += item[`${type}_RIGHT`] || 0;
     });
 
     return acc;
@@ -83,24 +91,13 @@ const Chart = ({ data, dataKey, label }) => (
     </ResponsiveContainer>
   </div>
 );
-
-const getColumns = () => [
-  { field: "Description", header: "Description" },
-  { field: "Measure_Date", header: "Measure Date" },
-  { field: "D1_LEFT", header: "D1 LEFT" },
-  { field: "D1_RIGHT", header: "D1 RIGHT" },
-  { field: "D2_LEFT", header: "D2 LEFT" },
-  { field: "D2_RIGHT", header: "D2 RIGHT" },
-  { field: "D3_LEFT", header: "D3 LEFT" },
-  { field: "D3_RIGHT", header: "D3 RIGHT" },
-  { field: "D4_LEFT", header: "D4 LEFT" },
-  { field: "D4_RIGHT", header: "D4 RIGHT" },
-];
-
 const DataTableComponent = ({ result }) => {
   const [showGraph, setShowGraph] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
   const [pdfFile, setPdfFile] = useState(null);
+  const [selectedLocoNumbers, setSelectedLocoNumbers] = useState(["All"]);
+  const [filteredData, setFilteredData] = useState([]);
+
   const pdfUrlLocal = "/wheelSetForm.pdf";
 
   useEffect(() => {
@@ -185,7 +182,6 @@ const DataTableComponent = ({ result }) => {
   };
 
   const transformedGroupedData = transformAndGroupData(result.Data);
-  const columns = getColumns();
   const charts = [
     { dataKey: "D1_LEFT", label: "D1 LEFT" },
     { dataKey: "D1_RIGHT", label: "D1 RIGHT" },
@@ -196,8 +192,33 @@ const DataTableComponent = ({ result }) => {
     { dataKey: "D4_LEFT", label: "D4 LEFT" },
     { dataKey: "D4_RIGHT", label: "D4 RIGHT" },
   ];
+
+  const getColumns = () => [
+    {
+      field: "Description",
+      header: "Description",
+      body: (rowData) => (
+        <div className="flex justify-between mr-3">
+          {rowData.Description}
+          <i
+            className="pi pi-file-pdf cursor-pointer text-xl"
+            onClick={() => handleRowClick(rowData)}
+          />
+        </div>
+      ),
+    },
+    { field: "Measure_Date", header: "Measure Date" },
+    { field: "D1_LEFT", header: "D1 LEFT" },
+    { field: "D1_RIGHT", header: "D1 RIGHT" },
+    { field: "D2_LEFT", header: "D2 LEFT" },
+    { field: "D2_RIGHT", header: "D2 RIGHT" },
+    { field: "D3_LEFT", header: "D3 LEFT" },
+    { field: "D3_RIGHT", header: "D3 RIGHT" },
+    { field: "D4_LEFT", header: "D4 LEFT" },
+    { field: "D4_RIGHT", header: "D4 RIGHT" },
+  ];
+
   const handleRowClick = (rowData) => {
-    console.log(rowData, "clicked row data");
     const updatedData = {
       ...rowData,
       Locomotive_Number: "Loco-v1",
@@ -206,19 +227,52 @@ const DataTableComponent = ({ result }) => {
       Operating_Company: "Operating Company Name",
     };
     setSelectedRow(updatedData);
+    modifyAndDownloadPdf();
   };
-  console.log(result.Data, "result data");
-  console.log(transformedGroupedData, "rendred column");
+  const columns = getColumns();
+
+  const uniqueDescriptions = [
+    ...new Set(transformedGroupedData.map((item) => item.Description)),
+  ];
+  useEffect(() => {
+    setSelectedLocoNumbers(uniqueDescriptions);
+  }, []);
+  useEffect(() => {
+    const filter = selectedLocoNumbers.length
+      ? transformedGroupedData.filter((item) =>
+          selectedLocoNumbers.includes(item.Description)
+        )
+      : transformedGroupedData;
+    console.log(filter, "filter");
+    setFilteredData(filter);
+  }, [selectedLocoNumbers]);
+
   return (
     <div className="flex flex-col p-14">
+      <div className="w-full flex justify-center">
+        <div className="w-1/4">
+          <FloatLabel>
+            <MultiSelect
+              value={selectedLocoNumbers}
+              onChange={(e) => {
+                setSelectedLocoNumbers(e.value);
+                console.log(e.value);
+              }}
+              options={uniqueDescriptions.map((description) => ({
+                label: description,
+                value: description,
+              }))}
+              selectAllLabel="All"
+              placeholder="Select Locomotive Numbers"
+              showClear
+              className="w-full"
+              display="chip"
+            />
+            <label htmlFor="ms-loco">Descriptions</label>
+          </FloatLabel>
+        </div>
+      </div>
       <div className="w-full flex justify-end gap-2">
-        <button
-          onClick={modifyAndDownloadPdf}
-          disabled={selectedRow === null}
-          className="border border-gray-200 my-2 rounded-md p-2 px-3 text-lg flex items-center"
-        >
-          Download Report
-        </button>
         <button
           onClick={() => setShowGraph(!showGraph)}
           className="border border-gray-200 my-2 rounded-md p-2 px-6 text-lg flex items-center"
@@ -231,7 +285,7 @@ const DataTableComponent = ({ result }) => {
       </div>
       <div className="w-full">
         <DataTable
-          value={transformedGroupedData}
+          value={filteredData}
           showGridlines
           paginator
           rows={10}
@@ -245,19 +299,10 @@ const DataTableComponent = ({ result }) => {
               key={i}
               field={col.field}
               header={col.header}
+              body={col.body}
               className="cursor-default"
             />
           ))}
-
-          <Column
-            header="Action"
-            body={(rowData) => (
-              <i
-                onClick={() => handleRowClick(rowData)}
-                className="pi pi-file-export text-lg mx-4 cursor-pointer"
-              />
-            )}
-          />
         </DataTable>
       </div>
 
@@ -266,7 +311,7 @@ const DataTableComponent = ({ result }) => {
           {charts.map((chart, index) => (
             <Chart
               key={index}
-              data={transformedGroupedData}
+              value={filteredData}
               dataKey={chart.dataKey}
               label={chart.label}
             />
