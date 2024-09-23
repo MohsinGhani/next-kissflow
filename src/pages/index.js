@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Timeline } from "primereact/timeline";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
@@ -11,7 +11,7 @@ import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { CSVLink, CSVDownload } from "react-csv";
 
-export default function Home({ result }) {
+export default function Home({ result, serviceEventResult }) {
   const [selectedLocoNumbers, setSelectedLocoNumbers] = useState([]);
   const [locomotiveNumbers, setLocomotiveNumbers] = useState([]);
   const [tableView, setTableView] = useState(false);
@@ -31,7 +31,6 @@ export default function Home({ result }) {
       setSelectedLocoNumbers(uniqueLocoNumbers);
     }
   }, [result]);
-
   const getDateAfterDays = (days) => {
     return moment().add(days, "days").toDate();
   };
@@ -43,8 +42,16 @@ export default function Home({ result }) {
   };
 
   const customizedContent = (item) => {
-    const { _id, WO_Number, Next_Due_Date, PM_Description, Loco_Description } =
-      item;
+    const {
+      _id,
+      WO_Number,
+      Next_Due_Date,
+      PM_Description,
+      Loco_Description,
+      service,
+      Repair_Workshop,
+    } = item;
+
     const futureDate = getDateAfterDays(60);
     const currentDate = moment().startOf("day");
     const dueDate = moment(Next_Due_Date, "YYYY-MM-DD");
@@ -105,6 +112,8 @@ export default function Home({ result }) {
                   ? "green-card"
                   : isForecastDateWithin60Days
                   ? "yellow-card"
+                  : service
+                  ? "service-card"
                   : "green-card"
               }`}
             >
@@ -141,11 +150,20 @@ export default function Home({ result }) {
               <p className="card-description text-xs" title={PM_Description}>
                 {PM_Description}
               </p>
+              <p
+                className="card-description text-xs"
+                title={Repair_Workshop?.Name}
+              >
+                {Repair_Workshop?.Name}
+              </p>
             </Card>
           </>
         ) : (
           <>
-            <Card key={_id} className="simple-card">
+            <Card
+              key={_id}
+              className={`simple-car ${service ? "service-card" : ""}`}
+            >
               <h3
                 className="card-title font-lato text-xl font-bold text-black"
                 title={Loco_Description}
@@ -164,6 +182,12 @@ export default function Home({ result }) {
               />
               <p className="card-description text-xs" title={PM_Description}>
                 {PM_Description}
+              </p>
+              <p
+                className="card-description text-xs"
+                title={Repair_Workshop?.Name}
+              >
+                {Repair_Workshop?.Name}
               </p>
             </Card>
           </>
@@ -190,29 +214,46 @@ export default function Home({ result }) {
       );
     }
   };
-  const filteredData = (result?.Data || [])
-    .filter((item) => {
-      const matchesLocoNumber =
-        !selectedLocoNumbers?.length ||
-        selectedLocoNumbers.includes(item?.Loco_Description);
 
-      const matchesDateRange = dates
-        ? moment(item.Next_Due_Date).isBetween(
-            moment(dates[0]).startOf("day"),
-            moment(dates[1]).endOf("day"),
-            null,
-            "[]"
-          )
-        : true;
+  const filteredData = useMemo(() => {
+    // Combine and transform data from result and serviceEventResult
+    const combinedData = [
+      ...(result?.Data || []),
+      ...(serviceEventResult?.Data?.map((item) => ({
+        ...item,
+        _id: item?.Locomotive_Number?._id,
+        Loco_Description: item?.Locomotive_Number?.Name,
+        Next_Due_Date: item?.Plan_Start,
+        PM_Description: item?.Event_Service,
+        service: true,
+      })) || []),
+    ];
 
-      return matchesLocoNumber && matchesDateRange;
-    })
-    .sort((a, b) => {
-      const dateA = moment(a.Next_Due_Date);
-      const dateB = moment(b.Next_Due_Date);
+    // Filter and sort the combined data based on criteria
+    return combinedData
+      .filter((item) => {
+        const matchesLocoNumber =
+          !selectedLocoNumbers?.length ||
+          selectedLocoNumbers.includes(item?.Loco_Description);
 
-      return dateA.isAfter(dateB) ? 1 : dateA.isBefore(dateB) ? -1 : 0;
-    });
+        const matchesDateRange = dates
+          ? moment(item?.Next_Due_Date).isBetween(
+              moment(dates[0]).startOf("day"),
+              moment(dates[1]).endOf("day"),
+              null,
+              "[]"
+            )
+          : true;
+
+        return matchesLocoNumber && matchesDateRange;
+      })
+      .sort((a, b) => {
+        const dateA = moment(a?.Next_Due_Date);
+        const dateB = moment(b?.Next_Due_Date);
+        return dateA.diff(dateB);
+      });
+  }, [result?.Data, serviceEventResult?.Data, selectedLocoNumbers, dates]);
+
   const handleData = (rowData, field) => rowData[field] || "-";
 
   return (
@@ -344,8 +385,10 @@ export async function getServerSideProps() {
   const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
   const accountId = process.env.NEXT_PUBLIC_ACCOUNT_ID;
   const formId = process.env.NEXT_PUBLIC_FORM_ID;
+  const serviceEventFormId = process.env.NEXT_PUBLIC_SERVICE_EVENT_FORM_ID;
   const pageSize = 100;
   let allData = [];
+  let serviceEventData = [];
   let page = 1;
 
   try {
@@ -361,15 +404,34 @@ export async function getServerSideProps() {
           },
         }
       );
+      const serviceEventResponse = await fetch(
+        `${baseURL}/form/2/${accountId}/${serviceEventFormId}/list?page_number=${page}&page_size=${pageSize}`,
+        {
+          method: "GET",
+          headers: {
+            "X-Access-Key-Id": process.env.NEXT_PUBLIC_ACCESS_KEY_ID,
+            "X-Access-Key-Secret": process.env.NEXT_PUBLIC_ACCESS_KEY_SECRET,
+            accept: "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+      if (!serviceEventResponse.ok) {
+        throw new Error(`HTTP error! status: ${serviceEventResponse.status}`);
+      }
 
       const result = await response.json();
-
+      const serviceEventResult = await serviceEventResponse.json();
       if (result.Data && result.Data.length > 0) {
         allData = allData.concat(result.Data);
+      } else {
+        break;
+      }
+      if (serviceEventResult.Data && serviceEventResult.Data.length > 0) {
+        serviceEventData = serviceEventData.concat(serviceEventResult.Data);
       } else {
         break;
       }
@@ -378,13 +440,16 @@ export async function getServerSideProps() {
     }
 
     return {
-      props: { result: { Data: allData } },
+      props: {
+        result: { Data: allData },
+        serviceEventResult: { Data: serviceEventData },
+      },
     };
   } catch (error) {
     console.error("Failed to fetch KissFlow API data:", error);
 
     return {
-      props: { result: { Data: [] } },
+      props: { result: { Data: [] }, serviceEventResult: { Data: [] } },
     };
   }
 }
