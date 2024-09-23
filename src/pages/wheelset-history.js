@@ -14,6 +14,7 @@ import { PDFDocument, rgb } from "pdf-lib";
 import { FloatLabel } from "primereact/floatlabel";
 import { MultiSelect } from "primereact/multiselect";
 import { Tooltip } from "primereact/tooltip";
+import { Dropdown } from "primereact/dropdown";
 const transformAndGroupData = (data) => {
   const transformedData = data.map(
     ({ Locomotive_Number, Work_Order, ...rest }) => ({
@@ -74,29 +75,33 @@ const transformAndGroupData = (data) => {
     (a, b) => new Date(a.Measure_Date) - new Date(b.Measure_Date)
   );
 };
+const Chart = ({ data, dataKey, label }) => {
+  console.log(data, dataKey, label); // Log the data
 
-const Chart = ({ data, dataKey, label }) => (
-  <div className="my-4 w-full " style={{ height: "400px" }}>
-    <h3 className="my-5">{label}</h3>
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis
-          dataKey="Measure_Date"
-          tickFormatter={(date) => new Date(date).toLocaleDateString()}
-        />
-        <YAxis />
-        <RechartsTooltip />
-        <Line type="monotone" dataKey={dataKey} stroke="#8884d8" />
-      </LineChart>
-    </ResponsiveContainer>
-  </div>
-);
+  return (
+    <div className="my-4 w-full" style={{ height: "400px" }}>
+      <h3 className="my-5">{label}</h3>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis
+            dataKey="Measure_Date"
+            tickFormatter={(date) => new Date(date).toLocaleDateString()}
+          />
+          <YAxis />
+          <RechartsTooltip />
+          <Line type="monotone" dataKey={dataKey} stroke="#8884d8" />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
 const DataTableComponent = ({ result }) => {
   const [showGraph, setShowGraph] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
   const [pdfFile, setPdfFile] = useState(null);
-  const [selectedLocoNumbers, setSelectedLocoNumbers] = useState(["All"]);
+  const [selectedDescription, setSelectedDescription] = useState(null);
   const [filteredData, setFilteredData] = useState([]);
 
   const pdfUrlLocal = "/wheelSetForm.pdf";
@@ -242,40 +247,38 @@ const DataTableComponent = ({ result }) => {
   const uniqueDescriptions = [
     ...new Set(transformedGroupedData.map((item) => item.Description)),
   ];
+
   useEffect(() => {
-    setSelectedLocoNumbers(uniqueDescriptions);
+    if (uniqueDescriptions.length > 0) {
+      setSelectedDescription(uniqueDescriptions[0]);
+    }
   }, []);
+
   useEffect(() => {
-    const filter = selectedLocoNumbers.length
-      ? transformedGroupedData.filter((item) =>
-          selectedLocoNumbers.includes(item.Description)
+    const filter = selectedDescription
+      ? transformedGroupedData.filter(
+          (item) => item.Description === selectedDescription
         )
       : transformedGroupedData;
     setFilteredData(filter);
-  }, [selectedLocoNumbers, filteredData]);
+  }, [selectedDescription, transformedGroupedData]);
 
   return (
     <div className="flex flex-col p-14">
       <div className="w-full flex justify-center">
         <div className="w-1/4">
           <FloatLabel>
-            <MultiSelect
-              value={selectedLocoNumbers}
-              onChange={(e) => {
-                setSelectedLocoNumbers(e.value);
-                console.log(e.value);
-              }}
+            <Dropdown
+              value={selectedDescription}
+              onChange={(e) => setSelectedDescription(e.value)}
               options={uniqueDescriptions.map((description) => ({
                 label: description,
                 value: description,
               }))}
-              selectAllLabel="All"
-              placeholder="Select Locomotive Numbers"
-              showClear
+              placeholder="Select Locomotive Number"
               className="w-full"
-              display="chip"
             />
-            <label htmlFor="ms-loco">Descriptions</label>
+            <label htmlFor="dropdown-loco">Descriptions</label>
           </FloatLabel>
         </div>
       </div>
@@ -314,13 +317,12 @@ const DataTableComponent = ({ result }) => {
           ))}
         </DataTable>
       </div>
-
       {showGraph && (
-        <div className="grid grid-cols-2 my-3 p-3 gap-12 border border-gray-100">
+        <div className="grid grid-cols-2 my-3 p-3 gap-12 border border-gray-100 ">
           {charts.map((chart, index) => (
             <Chart
               key={index}
-              value={filteredData}
+              data={filteredData}
               dataKey={chart.dataKey}
               label={chart.label}
             />
