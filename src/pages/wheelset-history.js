@@ -13,6 +13,8 @@ import {
 import { PDFDocument, rgb } from "pdf-lib";
 import { FloatLabel } from "primereact/floatlabel";
 import { MultiSelect } from "primereact/multiselect";
+import { Tooltip } from "primereact/tooltip";
+import { Dropdown } from "primereact/dropdown";
 const transformAndGroupData = (data) => {
   const transformedData = data.map(
     ({ Locomotive_Number, Work_Order, ...rest }) => ({
@@ -73,29 +75,33 @@ const transformAndGroupData = (data) => {
     (a, b) => new Date(a.Measure_Date) - new Date(b.Measure_Date)
   );
 };
+const Chart = ({ data, dataKey, label }) => {
+  console.log(data, dataKey, label); // Log the data
 
-const Chart = ({ data, dataKey, label }) => (
-  <div className="my-4 w-full " style={{ height: "400px" }}>
-    <h3 className="my-5">{label}</h3>
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis
-          dataKey="Measure_Date"
-          tickFormatter={(date) => new Date(date).toLocaleDateString()}
-        />
-        <YAxis />
-        <RechartsTooltip />
-        <Line type="monotone" dataKey={dataKey} stroke="#8884d8" />
-      </LineChart>
-    </ResponsiveContainer>
-  </div>
-);
+  return (
+    <div className="my-4 w-full" style={{ height: "400px" }}>
+      <h3 className="my-5">{label}</h3>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis
+            dataKey="Measure_Date"
+            tickFormatter={(date) => new Date(date).toLocaleDateString()}
+          />
+          <YAxis />
+          <RechartsTooltip />
+          <Line type="monotone" dataKey={dataKey} stroke="#8884d8" />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
 const DataTableComponent = ({ result }) => {
   const [showGraph, setShowGraph] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
   const [pdfFile, setPdfFile] = useState(null);
-  const [selectedLocoNumbers, setSelectedLocoNumbers] = useState(["All"]);
+  const [selectedDescription, setSelectedDescription] = useState(null);
   const [filteredData, setFilteredData] = useState([]);
 
   console.log("🚀 ~ filteredData:", filteredData);
@@ -124,11 +130,11 @@ const DataTableComponent = ({ result }) => {
       } = selectedRow;
 
       const positions = [
-        { name: "SD", y: 375 },
-        { name: "SH", y: 355 },
-        { name: "QR", y: 338 },
-        { name: "D", y: 320 },
-        { name: "H", y: 300 },
+        { name: "SD", y: 380 },
+        { name: "SH", y: 360 },
+        { name: "QR", y: 343 },
+        { name: "D", y: 325 },
+        { name: "H", y: 305 },
       ];
       const textToDraw = [
         { text: locoNumber, x: 420, y: 750, size: 10 },
@@ -199,12 +205,19 @@ const DataTableComponent = ({ result }) => {
     {
       field: "Description",
       header: "Description",
+
       body: (rowData) => (
-        <div className="flex justify-between mr-3">
+        <div className="flex justify-between min-w-20 mr-3 ">
+          <Tooltip target=".custom-target-icon" />
           {rowData.Description}
+
           <i
-            className="pi pi-file-pdf cursor-pointer text-xl"
-            onClick={() => handleRowClick(rowData)}
+            onClick={() => {
+              handleRowClick(rowData);
+            }}
+            className="custom-target-icon pi pi-file-pdf text-xl cursor-pointer"
+            data-pr-tooltip="Download Report"
+            data-pr-position="right"
           />
         </div>
       ),
@@ -236,41 +249,38 @@ const DataTableComponent = ({ result }) => {
   const uniqueDescriptions = [
     ...new Set(transformedGroupedData.map((item) => item.Description)),
   ];
+
   useEffect(() => {
-    setSelectedLocoNumbers(uniqueDescriptions);
+    if (uniqueDescriptions.length > 0) {
+      setSelectedDescription(uniqueDescriptions[0]);
+    }
   }, []);
+
   useEffect(() => {
-    const filter = selectedLocoNumbers.length
-      ? transformedGroupedData.filter((item) =>
-          selectedLocoNumbers.includes(item.Description)
+    const filter = selectedDescription
+      ? transformedGroupedData.filter(
+          (item) => item.Description === selectedDescription
         )
       : transformedGroupedData;
-    console.log(filter, "filter");
     setFilteredData(filter);
-  }, [selectedLocoNumbers]);
+  }, [selectedDescription, transformedGroupedData]);
 
   return (
     <div className="flex flex-col p-14">
       <div className="w-full flex justify-center">
         <div className="w-1/4">
           <FloatLabel>
-            <MultiSelect
-              value={selectedLocoNumbers}
-              onChange={(e) => {
-                setSelectedLocoNumbers(e.value);
-                console.log(e.value);
-              }}
+            <Dropdown
+              value={selectedDescription}
+              onChange={(e) => setSelectedDescription(e.value)}
               options={uniqueDescriptions.map((description) => ({
                 label: description,
                 value: description,
               }))}
-              selectAllLabel="All"
-              placeholder="Select Locomotive Numbers"
-              showClear
+              placeholder="Select Locomotive Number"
               className="w-full"
-              display="chip"
             />
-            <label htmlFor="ms-loco">Descriptions</label>
+            <label htmlFor="dropdown-loco">Descriptions</label>
           </FloatLabel>
         </div>
       </div>
@@ -302,18 +312,19 @@ const DataTableComponent = ({ result }) => {
               field={col.field}
               header={col.header}
               body={col.body}
-              className="cursor-default"
+              className={`cursor-default ${
+                col.field === "Description" ? " w-[18rem]" : "w-40"
+              }`}
             />
           ))}
         </DataTable>
       </div>
-
       {showGraph && (
-        <div className="grid grid-cols-2 my-3 p-3 gap-12 border border-gray-100">
+        <div className="grid grid-cols-2 my-3 p-3 gap-12 border border-gray-100 ">
           {charts.map((chart, index) => (
             <Chart
               key={index}
-              value={filteredData}
+              data={filteredData}
               dataKey={chart.dataKey}
               label={chart.label}
             />
