@@ -98,6 +98,8 @@ const DataTableComponent = ({ result }) => {
   const [selectedLocoNumbers, setSelectedLocoNumbers] = useState(["All"]);
   const [filteredData, setFilteredData] = useState([]);
 
+  console.log("🚀 ~ filteredData:", filteredData);
+
   const pdfUrlLocal = "/wheelSetForm.pdf";
 
   useEffect(() => {

@@ -13,7 +13,7 @@ import { InputIcon } from "primereact/inputicon";
 import { InputText } from "primereact/inputtext";
 
 import { useRouter } from "next/router";
-import { Tag } from "primereact/tag";
+
 const useQuarterMapping = () =>
   useMemo(
     () => ({
@@ -24,6 +24,7 @@ const useQuarterMapping = () =>
     }),
     []
   );
+
 const groupCosts = (data, costKey, quarterMapping) => {
   return data.reduce((acc, item) => {
     const description = item.Loco_Description || "Unknown";
@@ -62,7 +63,12 @@ const groupCosts = (data, costKey, quarterMapping) => {
   }, {});
 };
 
-const createGroupedData = (result, quarterMapping, filteredData) => {
+const createGroupedData = (
+  result,
+  quarterMapping,
+  filteredData,
+  handleEyeIconClick
+) => {
   const laborCost = groupCosts(
     filteredData,
     "Estimated_Labor_Cost",
@@ -129,10 +135,27 @@ const createGroupedData = (result, quarterMapping, filteredData) => {
     return totalCosts;
   };
 
-  const createGroup = (label, details) => ({
-    label,
-    details: Object.values(details ?? {}),
-  });
+  const createGroup = (label, details) => {
+    return {
+      label: (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+          onClick={() => handleEyeIconClick(label, details)} // Attach click handler
+        >
+          <span>{label}</span>
+          <i
+            className="pi pi-eye"
+            style={{ fontSize: "1.2rem", cursor: "pointer" }}
+          />
+        </div>
+      ),
+      details: Object.values(details ?? {}),
+    };
+  };
 
   return [
     createGroup("Labor Cost", laborCost),
@@ -168,6 +191,9 @@ const Table = ({ result }) => {
   const [sidebarData, setSideBarData] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
 
+  const [showGraph, setShowGraph] = useState(false); // New state to toggle graph visibility
+  const [graphData, setGraphData] = useState(null); // New state to store graph data
+
   const quarterMapping = useQuarterMapping();
   const router = useRouter();
   const { asPath } = router;
@@ -177,11 +203,41 @@ const Table = ({ result }) => {
       !selectedLocoNumbers?.length ||
       selectedLocoNumbers.includes(Loco_Description)
   );
+
+  // New function to handle the graph rendering
+  const handleEyeIconClick = (label, details) => {
+    console.log("🚀 ~ details:", details);
+    const data = {
+      labels: Object.keys(details).map((year) => year), // Years as labels on x-axis
+      datasets: [
+        {
+          label: label, // Cost Type as label
+          data: Object.values(details).map((yearData) => yearData.total), // Costs as data on y-axis
+          fill: false,
+          borderColor: "#42A5F5",
+          tension: 0.4,
+        },
+      ],
+    };
+    setGraphData(data);
+    setShowGraph(true); // Show graph below the table
+  };
+
   const groupedData = useMemo(
-    () => createGroupedData(result, quarterMapping, filteredData),
+    () =>
+      createGroupedData(
+        result,
+        quarterMapping,
+        filteredData,
+        handleEyeIconClick
+      ),
     [result, quarterMapping, filteredData]
   );
+
   const allYears = useAllYears(groupedData);
+
+  console.log("🚀 ~ groupedData:", groupedData);
+
   useEffect(() => {
     const uniqueLocoNumbers = result?.Data
       ? [
@@ -196,6 +252,7 @@ const Table = ({ result }) => {
     setLocomotiveNumbers(uniqueLocoNumbers);
     setSelectedLocoNumbers(uniqueLocoNumbers);
   }, []);
+
   useEffect(() => {
     if (searchTerm && sidebarData) {
       const filterData = sidebarData.dataset.filter((item) =>
@@ -212,6 +269,7 @@ const Table = ({ result }) => {
       return newSet;
     });
   };
+
   const renderTotalYearColumns = () => {
     return allYears.map((year) => (
       <Column
@@ -356,6 +414,7 @@ const Table = ({ result }) => {
       ];
     });
   };
+
   const handleQuarterToggle = (year, quarter) => {
     const key = `${year}-${quarter}`;
     setExpandedQuarters((prev) => {
@@ -372,6 +431,7 @@ const Table = ({ result }) => {
       filteredData
     );
     let costType = "";
+
     if (rowIndex >= 0 && rowIndex < groupedData.length) {
       costType = groupedData[rowIndex].label;
     }
@@ -600,7 +660,6 @@ const Table = ({ result }) => {
   };
 
   const handleRowExpansion = (e) => {
-    console.log("hello");
     const costTypes = Object.keys(e.data || {}).filter(
       (key) => e.data[key] === true
     );
@@ -650,6 +709,7 @@ const Table = ({ result }) => {
         ))}
       </div>
     ));
+
   return (
     <div className="p-8">
       <div className="w-full flex justify-center items-start gap-4 mb-4">
