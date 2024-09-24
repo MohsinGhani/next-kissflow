@@ -259,7 +259,7 @@ export default function Home({ result, serviceEventResult }) {
 
   return (
     <div className="timeline-container pt-8">
-      <div className="w-full fixed flex flex-col justify-center items-center gap-4">
+      <div className="w-full fixed  flex flex-col justify-center items-center gap-4">
         <div className="w-full flex justify-center items-start gap-4">
           <div className="w-1/4 ">
             <FloatLabel>
@@ -308,26 +308,27 @@ export default function Home({ result, serviceEventResult }) {
           </div>
         </div>
       </div>
-
+      <div className="w-full gap-4 justify-end flex my-6 mt-24  fixed pr-12 p-5">
+        <div>
+          <Button
+            onClick={() => setTableView((prev) => !prev)}
+            className="bg-primary border-primary px-4 py-[7px] text-sm flex-1 text-white rounded-md"
+          >
+            Switch to {tableView ? "Timeline View" : "Table view"}
+          </Button>
+        </div>
+        {tableView && (
+          <CSVLink
+            data={filteredData}
+            className="bg-primary border-primary px-4 py-[8px] text-sm text-white rounded-md"
+          >
+            Download Table
+          </CSVLink>
+        )}
+      </div>
       <div className="data-timeline-container">
         {tableView ? (
-          <div className="w-4/6 ">
-            <div className="w-full gap-4 justify-end flex my-2 ">
-              <div>
-                <Button
-                  onClick={() => setTableView((prev) => !prev)}
-                  className="bg-primary border-primary px-4 py-[8px] text-sm flex-1 text-white rounded-md"
-                >
-                  Switch to Timeline View
-                </Button>
-              </div>
-              <CSVLink
-                data={filteredData}
-                className="bg-primary border-primary px-4 py-[8px] text-sm text-white rounded-md"
-              >
-                Download Table
-              </CSVLink>
-            </div>
+          <div className="w-4/6 mt-7">
             <DataTable
               style={{ border: "1px solid #e6e6e6" }}
               showGridlines
@@ -358,14 +359,7 @@ export default function Home({ result, serviceEventResult }) {
           </div>
         ) : (
           <div className="max-w-full">
-            <div className="text-end w-10/12 ">
-              <Button
-                onClick={() => setTableView((prev) => !prev)}
-                className="bg-primary border-primary px-5 py-[8px] text-sm flex-1 text-white rounded-md"
-              >
-                Switch to Table View
-              </Button>
-            </div>
+            <div className="text-end w-10/12 "></div>
             <Timeline
               value={filteredData}
               content={customizedContent}

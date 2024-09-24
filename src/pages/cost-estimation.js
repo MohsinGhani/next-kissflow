@@ -33,7 +33,8 @@ const useQuarterMapping = () =>
     []
   );
 
-const groupCosts = (data, costKey, quarterMapping) => {
+const groupCosts = (data, costKey, quarterMapping, graphData) => {
+  console.log(graphData, "graphData", data);
   return data.reduce((acc, item) => {
     const description = item.Loco_Description || "Unknown";
     const date = item.Next_Due_Date;
@@ -74,6 +75,7 @@ const groupCosts = (data, costKey, quarterMapping) => {
 const createGroupedData = (
   result,
   quarterMapping,
+  // graphData,
   filteredData,
   handleEyeIconClick
 ) => {
@@ -144,6 +146,8 @@ const createGroupedData = (
   };
 
   const createGroup = (label, details) => {
+    // const graphExists = graphData.find((graph) => graph.label === label); // Check if the label exists in graphData
+    // console.log(graphData, "graphData");
     return {
       label: (
         <div
@@ -243,9 +247,10 @@ const Table = ({ result }) => {
         result,
         quarterMapping,
         filteredData,
-        handleEyeIconClick
+        handleEyeIconClick,
+        graphData // Pass graphData to createGroupedData
       ),
-    [result, quarterMapping, filteredData]
+    [result, quarterMapping, filteredData, graphData] // Add graphData to the dependency array
   );
 
   const allYears = useAllYears(groupedData);
@@ -674,7 +679,7 @@ const Table = ({ result }) => {
   const Chart = ({ data, dataKey, label }) => {
     return (
       <div className="my-4 w-full" style={{ height: "400px" }}>
-        <h3 className="my-5 text-xl font-bold">Graph: {label}</h3>
+        <h3 className="my-5 text-xl font-bold"> {label} :</h3>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>
             {" "}
@@ -855,7 +860,7 @@ const Table = ({ result }) => {
           chartData.map((graph, index) => (
             <Chart
               key={index}
-              data={graph.data} // Pass processed data, not graph.details
+              data={graph.data}
               dataKey="total"
               label={graph.label}
             />
