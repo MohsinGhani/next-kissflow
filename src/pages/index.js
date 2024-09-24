@@ -12,6 +12,7 @@ import { Column } from "primereact/column";
 import { CSVLink, CSVDownload } from "react-csv";
 
 export default function Home({ result, serviceEventResult }) {
+  console.log(result.Data);
   const [selectedLocoNumbers, setSelectedLocoNumbers] = useState([]);
   const [locomotiveNumbers, setLocomotiveNumbers] = useState([]);
   const [tableView, setTableView] = useState(false);
@@ -162,7 +163,7 @@ export default function Home({ result, serviceEventResult }) {
           <>
             <Card
               key={_id}
-              className={`simple-car ${service ? "service-card" : ""}`}
+              className={`simple-card ${service ? "service-card" : ""}`}
             >
               <h3
                 className="card-title font-lato text-xl font-bold text-black"

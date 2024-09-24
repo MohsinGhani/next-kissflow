@@ -198,10 +198,8 @@ const Table = ({ result }) => {
   const [visibleRight, setVisibleRight] = useState(false);
   const [sidebarData, setSideBarData] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-
-  const [showGraph, setShowGraph] = useState(false); // New state to toggle graph visibility
-  const [graphData, setGraphData] = useState(null); // New state to store graph data
-
+  const [chartData, setChartData] = useState([]);
+  const [graphData, setGraphData] = useState([]);
   const quarterMapping = useQuarterMapping();
   const router = useRouter();
   const { asPath } = router;
@@ -212,23 +210,31 @@ const Table = ({ result }) => {
       selectedLocoNumbers.includes(Loco_Description)
   );
 
-  // New function to handle the graph rendering
   const handleEyeIconClick = (label, details) => {
-    console.log("🚀 ~ details:", details);
-    const data = {
-      labels: Object.keys(details).map((year) => year), // Years as labels on x-axis
-      datasets: [
-        {
-          label: label, // Cost Type as label
-          data: Object.values(details).map((yearData) => yearData.total), // Costs as data on y-axis
-          fill: false,
-          borderColor: "#42A5F5",
-          tension: 0.4,
-        },
-      ],
-    };
-    setGraphData({ details, label }); // Set graph data correctly
-    setShowGraph(true); // Show graph below the table
+    const graphExists = graphData.find((graph) => graph.label === label);
+
+    if (graphExists) {
+      setGraphData((prevGraphs) =>
+        prevGraphs.filter((graph) => graph.label !== label)
+      );
+    } else {
+      // const data = {
+      //   labels: Object.keys(details).map((year) => year),
+      //   datasets: [
+      //     {
+      //       label: label, // Cost Type as label
+      //       data: Object.values(details).map((yearData) => yearData.total),
+      //       fill: false,
+      //       borderColor: "#42A5F5",
+      //       tension: 0.4,
+      //     },
+      //   ],
+      // };
+
+      setGraphData((prevGraphs) => [...prevGraphs, { details, label }]);
+    }
+
+    console.log(graphData);
   };
 
   const groupedData = useMemo(
@@ -243,8 +249,6 @@ const Table = ({ result }) => {
   );
 
   const allYears = useAllYears(groupedData);
-
-  console.log("🚀 ~ groupedData:", groupedData);
 
   useEffect(() => {
     const uniqueLocoNumbers = result?.Data
@@ -667,13 +671,13 @@ const Table = ({ result }) => {
     );
   };
 
-  const [chartData, setChartData] = useState([]);
   const Chart = ({ data, dataKey, label }) => {
     return (
       <div className="my-4 w-full" style={{ height: "400px" }}>
-        <h3 className="my-5">{label}</h3>
+        <h3 className="my-5 text-xl font-bold">Graph: {label}</h3>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>
+            {" "}
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="year" tickFormatter={(year) => year} />
             <YAxis />
@@ -686,22 +690,39 @@ const Table = ({ result }) => {
   };
 
   useEffect(() => {
-    if (graphData) {
-      console.log(graphData, "graphData");
-      const resultData = Object.entries(graphData.details).flatMap(
-        ([key, value]) => {
-          if (value.years) {
-            return Object.entries(value.years).map(([year, yearData]) => ({
-              year: year,
-              total: yearData.total || 0,
-            }));
-          }
-          return [];
-        }
-      );
+    if (graphData && Array.isArray(graphData) && graphData.length > 0) {
+      const allChartData = graphData
+        .map((graphItem) => {
+          const { details, label } = graphItem;
 
-      const filteredResult = resultData.filter((item) => item.year);
-      setChartData(filteredResult);
+          if (details) {
+            const resultData = Object.entries(details).flatMap(
+              ([key, value]) => {
+                if (value.years) {
+                  return Object.entries(value.years).map(
+                    ([year, yearData]) => ({
+                      year: year,
+                      total: yearData.total || 0,
+                    })
+                  );
+                }
+                return [];
+              }
+            );
+
+            const filteredResult = resultData.filter((item) => item.year);
+
+            return {
+              label: label,
+              data: filteredResult,
+            };
+          }
+
+          return null;
+        })
+        .filter((item) => item !== null);
+
+      setChartData(allChartData);
     }
   }, [graphData]);
 
@@ -829,9 +850,17 @@ const Table = ({ result }) => {
           {getTotalColumnComponents()}
         </DataTable>
       </div>
-      {graphData && (
-        <Chart data={chartData} dataKey="total" label={graphData.label} />
-      )}
+      <div className="grid grid-cols-2 my-3 p-3 gap-12 border border-gray-100 ">
+        {chartData.length > 0 &&
+          chartData.map((graph, index) => (
+            <Chart
+              key={index}
+              data={graph.data} // Pass processed data, not graph.details
+              dataKey="total"
+              label={graph.label}
+            />
+          ))}
+      </div>
     </div>
   );
 };
