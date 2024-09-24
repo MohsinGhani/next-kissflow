@@ -33,8 +33,7 @@ const useQuarterMapping = () =>
     []
   );
 
-const groupCosts = (data, costKey, quarterMapping, graphData) => {
-  console.log(graphData, "graphData", data);
+const groupCosts = (data, costKey, quarterMapping) => {
   return data.reduce((acc, item) => {
     const description = item.Loco_Description || "Unknown";
     const date = item.Next_Due_Date;
@@ -75,9 +74,9 @@ const groupCosts = (data, costKey, quarterMapping, graphData) => {
 const createGroupedData = (
   result,
   quarterMapping,
-  // graphData,
   filteredData,
-  handleEyeIconClick
+  handleEyeIconClick,
+  graphData
 ) => {
   const laborCost = groupCosts(
     filteredData,
@@ -146,8 +145,8 @@ const createGroupedData = (
   };
 
   const createGroup = (label, details) => {
-    // const graphExists = graphData.find((graph) => graph.label === label); // Check if the label exists in graphData
-    // console.log(graphData, "graphData");
+    const graphExists = graphData.find((graph) => graph.label === label);
+
     return {
       label: (
         <div
@@ -156,11 +155,11 @@ const createGroupedData = (
             alignItems: "center",
             justifyContent: "space-between",
           }}
-          onClick={() => handleEyeIconClick(label, details)} // Attach click handler
+          onClick={() => handleEyeIconClick(label, details)}
         >
           <span>{label}</span>
           <i
-            className="pi pi-eye"
+            className={`pi ${graphExists ? "pi-eye" : "pi-eye-slash"}`}
             style={{ fontSize: "1.2rem", cursor: "pointer" }}
           />
         </div>
