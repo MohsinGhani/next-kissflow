@@ -221,19 +221,6 @@ const Table = ({ result }) => {
         prevGraphs.filter((graph) => graph.label !== label)
       );
     } else {
-      // const data = {
-      //   labels: Object.keys(details).map((year) => year),
-      //   datasets: [
-      //     {
-      //       label: label, // Cost Type as label
-      //       data: Object.values(details).map((yearData) => yearData.total),
-      //       fill: false,
-      //       borderColor: "#42A5F5",
-      //       tension: 0.4,
-      //     },
-      //   ],
-      // };
-
       setGraphData((prevGraphs) => [...prevGraphs, { details, label }]);
     }
 
@@ -247,9 +234,9 @@ const Table = ({ result }) => {
         quarterMapping,
         filteredData,
         handleEyeIconClick,
-        graphData // Pass graphData to createGroupedData
+        graphData
       ),
-    [result, quarterMapping, filteredData, graphData] // Add graphData to the dependency array
+    [result, quarterMapping, filteredData, graphData]
   );
 
   const allYears = useAllYears(groupedData);
@@ -692,42 +679,33 @@ const Table = ({ result }) => {
       </div>
     );
   };
-
   useEffect(() => {
-    if (graphData && Array.isArray(graphData) && graphData.length > 0) {
-      const allChartData = graphData
-        .map((graphItem) => {
-          const { details, label } = graphItem;
+    const allChartData =
+      Array.isArray(graphData) && graphData.length > 0
+        ? graphData
+            .map(({ details, label }) => {
+              if (details) {
+                const resultData = Object.entries(details).flatMap(
+                  ([key, value]) =>
+                    value.years
+                      ? Object.entries(value.years).map(([year, yearData]) => ({
+                          year,
+                          total: yearData.total || 0,
+                        }))
+                      : []
+                );
 
-          if (details) {
-            const resultData = Object.entries(details).flatMap(
-              ([key, value]) => {
-                if (value.years) {
-                  return Object.entries(value.years).map(
-                    ([year, yearData]) => ({
-                      year: year,
-                      total: yearData.total || 0,
-                    })
-                  );
-                }
-                return [];
+                return {
+                  label,
+                  data: resultData.filter((item) => item.year),
+                };
               }
-            );
+              return null;
+            })
+            .filter((item) => item !== null)
+        : [];
 
-            const filteredResult = resultData.filter((item) => item.year);
-
-            return {
-              label: label,
-              data: filteredResult,
-            };
-          }
-
-          return null;
-        })
-        .filter((item) => item !== null);
-
-      setChartData(allChartData);
-    }
+    setChartData(allChartData);
   }, [graphData]);
 
   const handleRowExpansion = (e) => {
@@ -780,7 +758,8 @@ const Table = ({ result }) => {
         ))}
       </div>
     ));
-
+  console.log(chartData, "chartData");
+  console.log(graphData, "graphData");
   return (
     <div className="p-8">
       <div className="w-full flex justify-center items-start gap-4 mb-4">
@@ -854,9 +833,10 @@ const Table = ({ result }) => {
           {getTotalColumnComponents()}
         </DataTable>
       </div>
-      <div className="grid grid-cols-2 my-3 p-3 gap-12 border border-gray-100 ">
-        {chartData.length > 0 &&
-          chartData.map((graph, index) => (
+
+      {chartData.length > 0 && (
+        <div className="grid grid-cols-2 my-3 p-3 gap-12 border border-gray-100 ">
+          {chartData.map((graph, index) => (
             <Chart
               key={index}
               data={graph.data}
@@ -864,7 +844,8 @@ const Table = ({ result }) => {
               label={graph.label}
             />
           ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
