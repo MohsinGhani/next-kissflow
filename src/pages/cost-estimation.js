@@ -145,7 +145,7 @@ const createGroupedData = (
   };
 
   const createGroup = (label, details) => {
-    const graphExists = graphData.find((graph) => graph.label === label);
+    const graphExists = graphData?.find((graph) => graph.label === label);
 
     return {
       label: (
@@ -214,7 +214,7 @@ const Table = ({ result }) => {
   );
 
   const handleEyeIconClick = (label, details) => {
-    const graphExists = graphData.find((graph) => graph.label === label);
+    const graphExists = graphData?.find((graph) => graph.label === label);
 
     if (graphExists) {
       setGraphData((prevGraphs) =>
