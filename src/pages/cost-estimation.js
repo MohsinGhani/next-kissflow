@@ -143,7 +143,6 @@ const createGroupedData = (
 
     return totalCosts;
   };
-
   const createGroup = (label, details) => {
     const graphExists = graphData?.find((graph) => graph.label === label);
 
@@ -155,7 +154,7 @@ const createGroupedData = (
             alignItems: "center",
             justifyContent: "space-between",
           }}
-          onClick={() => handleEyeIconClick(label, details)}
+          onClick={() => console.log(label, details, "label and details")}
         >
           <span>{label}</span>
           <i
@@ -167,6 +166,11 @@ const createGroupedData = (
       details: Object.values(details ?? {}),
     };
   };
+  // const createGroup = (label, details) => ({
+  //   label,
+  //   details: Object.values(details ?? {}),
+
+  // });
 
   return [
     createGroup("Labor Cost", laborCost),
@@ -709,16 +713,25 @@ const Table = ({ result }) => {
   }, [graphData]);
 
   const handleRowExpansion = (e) => {
+    console.log("Row Data:", e.data);
     const costTypes = Object.keys(e.data || {}).filter(
       (key) => e.data[key] === true
     );
-    const latestCostType = costTypes.pop();
-    if (latestCostType) {
+    console.log(costTypes);
+    if (costTypes.length > 0) {
+      const latestCostType = costTypes[costTypes.length - 1]; // Using slice to avoid mutating the array
+      console.log(
+        `Navigating to cost estimation for: ${latestCostType}`,
+        "isu"
+      );
+
       router.push(
         `/cost-estimation?Estimated_${encodeURIComponent(
           latestCostType.replace(/\s+/g, "_")
         )}`
       );
+    } else {
+      console.warn("No valid cost types found", e.data);
     }
   };
 

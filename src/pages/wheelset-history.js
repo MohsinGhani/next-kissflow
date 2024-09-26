@@ -76,8 +76,6 @@ const transformAndGroupData = (data) => {
   );
 };
 const Chart = ({ data, dataKey, label }) => {
-  console.log(data, dataKey, label); // Log the data
-
   return (
     <div className="my-4 w-full" style={{ height: "400px" }}>
       <h3 className="my-5">{label}</h3>
@@ -103,8 +101,6 @@ const DataTableComponent = ({ result }) => {
   const [pdfFile, setPdfFile] = useState(null);
   const [selectedDescription, setSelectedDescription] = useState(null);
   const [filteredData, setFilteredData] = useState([]);
-
-  console.log("🚀 ~ filteredData:", filteredData);
 
   const pdfUrlLocal = "/wheelSetForm.pdf";
 
