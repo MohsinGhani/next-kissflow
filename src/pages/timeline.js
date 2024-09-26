@@ -9,10 +9,9 @@ import { FloatLabel } from "primereact/floatlabel";
 import { Button } from "primereact/button";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
-import { CSVLink, CSVDownload } from "react-csv";
+import { CSVLink } from "react-csv";
 
 export default function Home({ result, serviceEventResult }) {
-  console.log(result.Data);
   const [selectedLocoNumbers, setSelectedLocoNumbers] = useState([]);
   const [locomotiveNumbers, setLocomotiveNumbers] = useState([]);
   const [tableView, setTableView] = useState(false);
@@ -99,8 +98,6 @@ export default function Home({ result, serviceEventResult }) {
         daysText = `${pastDaysDifference} day${days !== 1 ? "s" : ""} ago`;
       }
     }
-
-    console.log("🚀 ~ daysText:", daysText);
 
     return (
       <>

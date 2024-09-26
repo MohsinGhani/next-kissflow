@@ -12,7 +12,6 @@ import {
 } from "recharts";
 import { PDFDocument, rgb } from "pdf-lib";
 import { FloatLabel } from "primereact/floatlabel";
-import { MultiSelect } from "primereact/multiselect";
 import { Tooltip } from "primereact/tooltip";
 import { Dropdown } from "primereact/dropdown";
 const transformAndGroupData = (data) => {
@@ -44,20 +43,14 @@ const transformAndGroupData = (data) => {
         Locomotive_id: locoIdKey,
         Homologation_Date: item.Homologation_Date || "-",
         Work_Order_Name: item.Work_Order_Name || "-",
-        ...Array.from({ length: 4 }, (_, i) => ({
-          [`D${i + 1}_LEFT`]: 0,
-          [`D${i + 1}_RIGHT`]: 0,
-          [`H${i + 1}_LEFT`]: 0,
-          [`H${i + 1}_RIGHT`]: 0,
-          [`QR${i + 1}_LEFT`]: 0,
-          [`QR${i + 1}_RIGHT`]: 0,
-          [`SH${i + 1}_LEFT`]: 0,
-          [`SH${i + 1}_RIGHT`]: 0,
-          [`SD${i + 1}_LEFT`]: 0,
-          [`SD${i + 1}_RIGHT`]: 0,
-          [`SR${i + 1}_LEFT`]: 0,
-          [`SR${i + 1}_RIGHT`]: 0,
-        })).reduce((acc, curr) => ({ ...acc, ...curr }), {}),
+        ...Object.fromEntries(
+          Array.from({ length: 4 }, (_, i) =>
+            ["D", "H", "QR", "SH", "SD", "SR"].flatMap((type) => [
+              [`${type}${i + 1}_LEFT`, 0],
+              [`${type}${i + 1}_RIGHT`, 0],
+            ])
+          ).flat()
+        ),
       };
     }
 
@@ -75,25 +68,23 @@ const transformAndGroupData = (data) => {
     (a, b) => new Date(a.Measure_Date) - new Date(b.Measure_Date)
   );
 };
-const Chart = ({ data, dataKey, label }) => {
-  return (
-    <div className="my-4 w-full" style={{ height: "400px" }}>
-      <h3 className="my-5">{label}</h3>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            dataKey="Measure_Date"
-            tickFormatter={(date) => new Date(date).toLocaleDateString()}
-          />
-          <YAxis />
-          <RechartsTooltip />
-          <Line type="monotone" dataKey={dataKey} stroke="#8884d8" />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  );
-};
+const Chart = ({ data, dataKey, label }) => (
+  <div className="my-4 w-full" style={{ height: "400px" }}>
+    <h3 className="my-5">{label}</h3>
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis
+          dataKey="Measure_Date"
+          tickFormatter={(date) => new Date(date).toLocaleDateString()}
+        />
+        <YAxis />
+        <RechartsTooltip />
+        <Line type="monotone" dataKey={dataKey} stroke="#8884d8" />
+      </LineChart>
+    </ResponsiveContainer>
+  </div>
+);
 
 const DataTableComponent = ({ result }) => {
   const [showGraph, setShowGraph] = useState(false);
@@ -101,6 +92,7 @@ const DataTableComponent = ({ result }) => {
   const [pdfFile, setPdfFile] = useState(null);
   const [selectedDescription, setSelectedDescription] = useState(null);
   const [filteredData, setFilteredData] = useState([]);
+  const transformedGroupedData = transformAndGroupData(result.Data);
 
   const pdfUrlLocal = "/wheelSetForm.pdf";
 
@@ -111,6 +103,21 @@ const DataTableComponent = ({ result }) => {
       setPdfFile(arrayBuffer);
     })();
   }, []);
+
+  useEffect(() => {
+    if (uniqueDescriptions.length > 0) {
+      setSelectedDescription(uniqueDescriptions[0]);
+    }
+  }, []);
+
+  useEffect(() => {
+    const filter = selectedDescription
+      ? transformedGroupedData.filter(
+          (item) => item.Description === selectedDescription
+        )
+      : transformedGroupedData;
+    setFilteredData(filter);
+  }, [selectedDescription, transformedGroupedData]);
 
   const modifyAndDownloadPdf = async () => {
     if (!pdfFile) return;
@@ -185,50 +192,39 @@ const DataTableComponent = ({ result }) => {
     }
   };
 
-  const transformedGroupedData = transformAndGroupData(result.Data);
-  const charts = [
-    { dataKey: "D1_LEFT", label: "D1 LEFT" },
-    { dataKey: "D1_RIGHT", label: "D1 RIGHT" },
-    { dataKey: "D2_LEFT", label: "D2 LEFT" },
-    { dataKey: "D2_RIGHT", label: "D2 RIGHT" },
-    { dataKey: "D3_LEFT", label: "D3 LEFT" },
-    { dataKey: "D3_RIGHT", label: "D3 RIGHT" },
-    { dataKey: "D4_LEFT", label: "D4 LEFT" },
-    { dataKey: "D4_RIGHT", label: "D4 RIGHT" },
-  ];
+  const charts = Array.from({ length: 4 }, (_, i) => [
+    { dataKey: `D${i + 1}_LEFT`, label: `D${i + 1} LEFT` },
+    { dataKey: `D${i + 1}_RIGHT`, label: `D${i + 1} RIGHT` },
+  ]).flat();
 
-  const getColumns = () => [
-    {
-      field: "Description",
-      header: "Description",
+  const getColumns = () => {
+    const DColumns = Array.from({ length: 4 }, (_, i) => [
+      { field: `D${i + 1}_LEFT`, header: `D${i + 1} LEFT` },
+      { field: `D${i + 1}_RIGHT`, header: `D${i + 1} RIGHT` },
+    ]).flat();
 
-      body: (rowData) => (
-        <div className="flex justify-between min-w-20 mr-3 ">
-          <Tooltip target=".custom-target-icon" />
-          {rowData.Description}
-
-          <i
-            onClick={() => {
-              handleRowClick(rowData);
-            }}
-            className="custom-target-icon pi pi-file-pdf text-xl cursor-pointer"
-            data-pr-tooltip="Download Report"
-            data-pr-position="right"
-          />
-        </div>
-      ),
-    },
-    { field: "Measure_Date", header: "Measure Date" },
-    { field: "D1_LEFT", header: "D1 LEFT" },
-    { field: "D1_RIGHT", header: "D1 RIGHT" },
-    { field: "D2_LEFT", header: "D2 LEFT" },
-    { field: "D2_RIGHT", header: "D2 RIGHT" },
-    { field: "D3_LEFT", header: "D3 LEFT" },
-    { field: "D3_RIGHT", header: "D3 RIGHT" },
-    { field: "D4_LEFT", header: "D4 LEFT" },
-    { field: "D4_RIGHT", header: "D4 RIGHT" },
-  ];
-
+    return [
+      {
+        field: "Description",
+        header: "Description",
+        body: (rowData) => (
+          <div className="flex justify-between min-w-20 mr-3 ">
+            <Tooltip target=".custom-target-icon" />
+            {rowData.Description}
+            <i
+              onClick={() => handleRowClick(rowData)}
+              className="custom-target-icon pi pi-file-pdf text-xl cursor-pointer"
+              data-pr-tooltip="Download Report"
+              data-pr-position="right"
+            />
+          </div>
+        ),
+      },
+      { field: "Measure_Date", header: "Measure Date" },
+      ...DColumns,
+    ];
+  };
+  const columns = getColumns();
   const handleRowClick = (rowData) => {
     const updatedData = {
       ...rowData,
@@ -240,26 +236,10 @@ const DataTableComponent = ({ result }) => {
     setSelectedRow(updatedData);
     modifyAndDownloadPdf();
   };
-  const columns = getColumns();
 
   const uniqueDescriptions = [
     ...new Set(transformedGroupedData.map((item) => item.Description)),
   ];
-
-  useEffect(() => {
-    if (uniqueDescriptions.length > 0) {
-      setSelectedDescription(uniqueDescriptions[0]);
-    }
-  }, []);
-
-  useEffect(() => {
-    const filter = selectedDescription
-      ? transformedGroupedData.filter(
-          (item) => item.Description === selectedDescription
-        )
-      : transformedGroupedData;
-    setFilteredData(filter);
-  }, [selectedDescription, transformedGroupedData]);
 
   return (
     <div className="flex flex-col p-14">
@@ -280,6 +260,7 @@ const DataTableComponent = ({ result }) => {
           </FloatLabel>
         </div>
       </div>
+
       <div className="w-full flex justify-end gap-2">
         <button
           onClick={() => setShowGraph(!showGraph)}
@@ -291,13 +272,14 @@ const DataTableComponent = ({ result }) => {
           />
         </button>
       </div>
+
       <div className="w-full">
         <DataTable
           value={filteredData}
           showGridlines
+          paginatorLeft
           paginator
           rows={10}
-          paginatorLeft
           rowsPerPageOptions={[5, 10, 25, 50]}
           dataKey="Measure_Date"
           selectionMode="single"
@@ -309,14 +291,15 @@ const DataTableComponent = ({ result }) => {
               header={col.header}
               body={col.body}
               className={`cursor-default ${
-                col.field === "Description" ? " w-[18rem]" : "w-40"
+                col.field === "Description" ? "w-[18rem]" : "w-40"
               }`}
             />
           ))}
         </DataTable>
       </div>
+
       {showGraph && (
-        <div className="grid grid-cols-2 my-3 p-3 gap-12 border border-gray-100 ">
+        <div className="grid grid-cols-2 my-3 p-3 gap-12 border border-gray-100">
           {charts.map((chart, index) => (
             <Chart
               key={index}

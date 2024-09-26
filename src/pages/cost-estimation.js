@@ -143,9 +143,9 @@ const createGroupedData = (
 
     return totalCosts;
   };
+
   const createGroup = (label, details) => {
     const graphExists = graphData?.find((graph) => graph.label === label);
-
     return {
       label: (
         <div
@@ -154,7 +154,7 @@ const createGroupedData = (
             alignItems: "center",
             justifyContent: "space-between",
           }}
-          onClick={() => console.log(label, details, "label and details")}
+          onClick={() => handleEyeIconClick(label, details)}
         >
           <span>{label}</span>
           <i
@@ -169,9 +169,7 @@ const createGroupedData = (
   // const createGroup = (label, details) => ({
   //   label,
   //   details: Object.values(details ?? {}),
-
   // });
-
   return [
     createGroup("Labor Cost", laborCost),
     createGroup("Tool Cost", toolCost),
@@ -719,7 +717,7 @@ const Table = ({ result }) => {
     );
     console.log(costTypes);
     if (costTypes.length > 0) {
-      const latestCostType = costTypes[costTypes.length - 1]; // Using slice to avoid mutating the array
+      const latestCostType = costTypes[costTypes.length - 1];
       console.log(
         `Navigating to cost estimation for: ${latestCostType}`,
         "isu"
@@ -771,8 +769,7 @@ const Table = ({ result }) => {
         ))}
       </div>
     ));
-  console.log(chartData, "chartData");
-  console.log(graphData, "graphData");
+
   return (
     <div className="p-8">
       <div className="w-full flex justify-center items-start gap-4 mb-4">
