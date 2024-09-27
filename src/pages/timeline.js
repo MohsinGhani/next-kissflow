@@ -1,15 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Timeline } from "primereact/timeline";
-import { Card } from "primereact/card";
-import { Tag } from "primereact/tag";
 import { MultiSelect } from "primereact/multiselect";
 import moment from "moment";
 import { Calendar } from "primereact/calendar";
 import { FloatLabel } from "primereact/floatlabel";
 import { Button } from "primereact/button";
-import { DataTable } from "primereact/datatable";
-import { Column } from "primereact/column";
 import { CSVLink } from "react-csv";
+import DataTableComponent from "@/component/DataTable";
+import CustomButton from "@/component/CustomButton";
+import TimelineComponent from "@/component/timeline/Timeline";
+import CustomizedContent from "@/component/timeline/CustomCardContent";
 
 export default function Home({ result, serviceEventResult }) {
   const [selectedLocoNumbers, setSelectedLocoNumbers] = useState([]);
@@ -21,7 +20,7 @@ export default function Home({ result, serviceEventResult }) {
     if (result?.Data) {
       const uniqueLocoNumbers = [
         ...new Set(
-          result.Data.map((item) => item?.Loco_Description).filter(
+          result.Data?.map((item) => item?.Loco_Description).filter(
             (description) => description !== null && description !== undefined
           )
         ),
@@ -37,184 +36,11 @@ export default function Home({ result, serviceEventResult }) {
 
   const handleNextMonthsFilter = (months) => {
     const startDate = moment().startOf("day").toDate();
-    const endDate = getDateAfterDays(months * 30); // Rough estimate for days in a month
+    const endDate = getDateAfterDays(months * 30);
     setDates([startDate, endDate]);
   };
 
-  const customizedContent = (item) => {
-    const {
-      _id,
-      WO_Number,
-      Next_Due_Date,
-      PM_Description,
-      Loco_Description,
-      service,
-      Repair_Workshop,
-    } = item;
-
-    const futureDate = getDateAfterDays(60);
-    const currentDate = moment().startOf("day");
-    const dueDate = moment(Next_Due_Date, "YYYY-MM-DD");
-
-    const isForecastDateWithin60Days = dueDate.isBetween(
-      currentDate,
-      futureDate,
-      "days",
-      "[]"
-    );
-    const isDueDateInPast = dueDate.isBefore(currentDate);
-
-    const daysDifference = dueDate.diff(currentDate, "days");
-
-    let daysText = "";
-
-    if (daysDifference > 0) {
-      if (daysDifference > 365) {
-        const years = Math.floor(daysDifference / 365);
-        daysText = `In ${years} year${years > 1 ? "s" : ""}`;
-      } else if (daysDifference > 30) {
-        const months = Math.floor(daysDifference / 30);
-        daysText = `In ${months} month${months > 1 ? "s" : ""}`;
-      } else if (daysDifference > 7) {
-        const weeks = Math.floor(daysDifference / 7);
-        daysText = `In ${weeks} week${weeks > 1 ? "s" : ""}`;
-      } else {
-        const days = Math.floor(daysDifference / 7);
-        daysText = `In ${daysDifference} day${days !== -1 ? "s" : ""}`;
-      }
-    } else {
-      const pastDaysDifference = Math.abs(daysDifference);
-      if (pastDaysDifference > 365) {
-        const years = Math.floor(pastDaysDifference / 365);
-        daysText = `${years} year${years > 1 ? "s" : ""} ago`;
-      } else if (pastDaysDifference > 30) {
-        const months = Math.floor(pastDaysDifference / 30);
-        daysText = `${months} month${months > 1 ? "s" : ""} ago`;
-      } else if (pastDaysDifference > 7) {
-        const weeks = Math.floor(pastDaysDifference / 7);
-        daysText = `${weeks} week${weeks > 1 ? "s" : ""} ago`;
-      } else {
-        const days = Math.floor(daysDifference / 7);
-        daysText = `${pastDaysDifference} day${days !== 1 ? "s" : ""} ago`;
-      }
-    }
-
-    return (
-      <>
-        {WO_Number ? (
-          <>
-            <Card
-              key={_id}
-              className={`custom-card ${
-                isDueDateInPast
-                  ? "green-card"
-                  : isForecastDateWithin60Days
-                  ? "yellow-card"
-                  : service
-                  ? "service-card"
-                  : "green-card"
-              }`}
-            >
-              <h3
-                className="card-title font-lato text-xl font-bold text-black"
-                title={Loco_Description}
-              >
-                {Loco_Description}
-              </h3>
-              {daysDifference !== 0 && (
-                <p className={`text-center font-lato text-sm text-textMedium`}>
-                  {daysText}
-                </p>
-              )}
-              <Tag
-                value={`# ${WO_Number}`}
-                className={`font-lato text-sm font-semibold ${
-                  isDueDateInPast
-                    ? "bg-secondary"
-                    : isForecastDateWithin60Days
-                    ? "bg-accent"
-                    : "bg-secondary"
-                }`}
-              />
-              <Tag
-                icon="pi pi-calendar"
-                value={Next_Due_Date}
-                className={`font-lato text-sm font-normal ${
-                  isForecastDateWithin60Days
-                    ? "bg-MediumBackground"
-                    : "bg-MediumBackground"
-                }`}
-              />
-              <p className="card-description text-xs" title={PM_Description}>
-                {PM_Description}
-              </p>
-              <p
-                className="card-description text-xs"
-                title={Repair_Workshop?.Name}
-              >
-                {Repair_Workshop?.Name}
-              </p>
-            </Card>
-          </>
-        ) : (
-          <>
-            <Card
-              key={_id}
-              className={`simple-card ${service ? "service-card" : ""}`}
-            >
-              <h3
-                className="card-title font-lato text-xl font-bold text-black"
-                title={Loco_Description}
-              >
-                {Loco_Description}
-              </h3>
-              {daysDifference !== 0 && (
-                <p className="text-center font-lato text-sm text-textMedium">
-                  {daysText}
-                </p>
-              )}
-              <Tag
-                icon="pi pi-calendar"
-                value={Next_Due_Date}
-                className="bg-primary"
-              />
-              <p className="card-description text-xs" title={PM_Description}>
-                {PM_Description}
-              </p>
-              <p
-                className="card-description text-xs"
-                title={Repair_Workshop?.Name}
-              >
-                {Repair_Workshop?.Name}
-              </p>
-            </Card>
-          </>
-        )}
-      </>
-    );
-  };
-
-  const customizedMarker = (item) => {
-    const currentDate = moment().startOf("day");
-    const forecastedDate = moment(item?.Next_Due_Date).startOf("day");
-
-    if (currentDate.isSame(forecastedDate, "day")) {
-      return (
-        <span className="w-full flex items-center justify-center  custom-marker z-10">
-          <Tag icon="pi pi-calendar" className="bg-primary">
-            Today
-          </Tag>
-        </span>
-      );
-    } else {
-      return (
-        <span className="flex items-center justify-center w-4 h-4 rounded-full border-2 border-[#217efd] bg-white custom-marker" />
-      );
-    }
-  };
-
   const filteredData = useMemo(() => {
-    // Combine and transform data from result and serviceEventResult
     const combinedData = [
       ...(result?.Data || []),
       ...(serviceEventResult?.Data?.map((item) => ({
@@ -227,7 +53,6 @@ export default function Home({ result, serviceEventResult }) {
       })) || []),
     ];
 
-    // Filter and sort the combined data based on criteria
     return combinedData
       .filter((item) => {
         const matchesLocoNumber =
@@ -243,6 +68,7 @@ export default function Home({ result, serviceEventResult }) {
             )
           : true;
 
+        CustomizedContent(item);
         return matchesLocoNumber && matchesDateRange;
       })
       .sort((a, b) => {
@@ -252,7 +78,12 @@ export default function Home({ result, serviceEventResult }) {
       });
   }, [result?.Data, serviceEventResult?.Data, selectedLocoNumbers, dates]);
 
-  const handleData = (rowData, field) => rowData[field] || "-";
+  const columns = [
+    { field: "Loco_Description", header: "Locomotive" },
+    { field: "Next_Due_Date", header: "Next Due Date" },
+    { field: "WO_Number", header: "WO Number" },
+    { field: "Description", header: "Description" },
+  ];
 
   return (
     <div className="timeline-container pt-8">
@@ -263,7 +94,7 @@ export default function Home({ result, serviceEventResult }) {
               <MultiSelect
                 value={selectedLocoNumbers}
                 onChange={(e) => setSelectedLocoNumbers(e.value)}
-                options={locomotiveNumbers.map((number) => ({
+                options={locomotiveNumbers?.map((number) => ({
                   label: number,
                   value: number,
                 }))}
@@ -293,13 +124,17 @@ export default function Home({ result, serviceEventResult }) {
               <label htmlFor="ms-month">Month Range</label>
             </FloatLabel>
             <div className="w-full flex justify-center items-center gap-4">
-              {[3, 6, 12].map((months) => (
-                <Button
+              {[3, 6, 12]?.map((months) => (
+                <div
                   key={months}
-                  label={`Next ${months} Months`}
-                  onClick={() => handleNextMonthsFilter(months)}
-                  className="bg-primary border-primary px-2 py-[6px] text-sm flex-1"
-                />
+                  className="bg-primary text-white border-primary px-2 font-medium py-[6px]  flex-1 text-center rounded-md"
+                >
+                  <CustomButton
+                    className="border-0 p-0 bg-transparent"
+                    title={`Next ${months} Months`}
+                    onClick={() => handleNextMonthsFilter(months)}
+                  />
+                </div>
               ))}
             </div>
           </div>
@@ -326,46 +161,20 @@ export default function Home({ result, serviceEventResult }) {
       <div className="data-timeline-container">
         {tableView ? (
           <div className="w-4/6 mt-7">
-            <DataTable
+            <DataTableComponent
+              filteredData={filteredData}
+              fields={columns}
               style={{ border: "1px solid #e6e6e6" }}
-              showGridlines
-              value={filteredData}
-              paginatorLeft
-              paginator
+              showGridlines={true}
+              paginator={true}
               rows={10}
               rowsPerPageOptions={[10, 30, 40, 50]}
               tableStyle={{ minWidth: "50rem", borderRadius: "50px" }}
-            >
-              {[
-                "Loco_Description",
-                "Next_Due_Date",
-                "WO_Number",
-                "Description",
-              ].map((field) => (
-                <Column
-                  key={field}
-                  field={field}
-                  header={field
-                    .replace(/_/g, " ")
-                    .replace(/\b\w/g, (char) => char.toUpperCase())}
-                  body={(rowData) => handleData(rowData, field)}
-                  className={field !== "Description" && "w-64"}
-                />
-              ))}
-            </DataTable>
+            />
           </div>
         ) : (
           <div className="max-w-full">
-            <div className="text-end w-10/12 "></div>
-            <Timeline
-              value={filteredData}
-              content={customizedContent}
-              align="alternate"
-              layout="horizontal"
-              opposite={<span>&nbsp;</span>}
-              className="data-timeline"
-              marker={customizedMarker}
-            />
+            <TimelineComponent value={filteredData} />
           </div>
         )}
       </div>

@@ -6,21 +6,15 @@ import "primereact/resources/primereact.min.css";
 import "primeicons/primeicons.css";
 import { MultiSelect } from "primereact/multiselect";
 import { FloatLabel } from "primereact/floatlabel";
-import { Sidebar } from "primereact/sidebar";
-import { Card } from "primereact/card";
-import { IconField } from "primereact/iconfield";
-import { InputIcon } from "primereact/inputicon";
-import { InputText } from "primereact/inputtext";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  YAxis,
-  XAxis,
-  Tooltip as RechartsTooltip,
-} from "recharts";
+
 import { useRouter } from "next/router";
+import CustomButton from "@/component/CustomButton";
+import ChartComponent from "@/component/Chart";
+import SidebarComponent from "@/component/Sidebar";
+import {
+  createGroupedData,
+  useAllYears,
+} from "@/component/cost-estimation/costGrouping";
 
 const useQuarterMapping = () =>
   useMemo(
@@ -31,144 +25,6 @@ const useQuarterMapping = () =>
       Q4: ["October", "November", "December"],
     }),
     []
-  );
-
-const groupCosts = (data, costKey, quarterMapping) => {
-  return data.reduce((acc, item) => {
-    const description = item.Loco_Description || "Unknown";
-    const date = item.Next_Due_Date;
-    const costValue = item[costKey];
-
-    if (date && typeof date === "string") {
-      const [year, month] = date.split("-");
-      const monthName = new Date(`${year}-${month}-01`).toLocaleString(
-        "default",
-        { month: "long" }
-      );
-      const quarter = Object.keys(quarterMapping).find((q) =>
-        quarterMapping[q].includes(monthName)
-      );
-      const value =
-        parseFloat(costValue?.replace(" EUR", "").replace(",", ".")) || 0;
-
-      acc[description] = acc[description] || { description, years: {} };
-      acc[description].years[year] = acc[description].years[year] || {
-        total: 0,
-        quarters: {},
-      };
-      acc[description].years[year].quarters[quarter] = acc[description].years[
-        year
-      ].quarters[quarter] || { total: 0, months: {} };
-
-      acc[description].years[year].total += value;
-      acc[description].years[year].quarters[quarter].total += value;
-      acc[description].years[year].quarters[quarter].months[monthName] =
-        (acc[description].years[year].quarters[quarter].months[monthName] ||
-          0) + value;
-    }
-
-    return acc;
-  }, {});
-};
-
-const createGroupedData = (
-  result,
-  quarterMapping,
-  filteredData,
-  handleEyeIconClick,
-  graphData
-) => {
-  const laborCost = groupCosts(
-    filteredData,
-    "Estimated_Labor_Cost",
-    quarterMapping
-  );
-  const toolCost = groupCosts(
-    filteredData,
-    "Estimated_Tool_Cost",
-    quarterMapping
-  );
-  const serviceCost = groupCosts(
-    filteredData,
-    "Estimated_Service_Cost",
-    quarterMapping
-  );
-  const itemCost = groupCosts(
-    filteredData,
-    "Estimated_Item_Cost",
-    quarterMapping
-  );
-
-  const calculateTotalCosts = () => {
-    const allCosts = [laborCost, toolCost, serviceCost, itemCost];
-    const totalCosts = {};
-
-    allCosts.forEach((costGroup) => {
-      Object.entries(costGroup).forEach(([description, descriptionData]) => {
-        totalCosts[description] = totalCosts[description] || {
-          description,
-          years: {},
-        };
-
-        Object.entries(descriptionData.years).forEach(([year, yearData]) => {
-          const yearTotal = totalCosts[description].years[year] || {
-            total: 0,
-            quarters: {},
-          };
-          yearTotal.total += yearData.total;
-
-          Object.entries(yearData.quarters).forEach(
-            ([quarter, quarterData]) => {
-              const quarterTotal = yearTotal.quarters[quarter] || {
-                total: 0,
-                months: {},
-              };
-              quarterTotal.total += quarterData.total;
-
-              Object.entries(quarterData.months).forEach(
-                ([month, monthValue]) => {
-                  quarterTotal.months[month] =
-                    (quarterTotal.months[month] || 0) + monthValue;
-                }
-              );
-
-              yearTotal.quarters[quarter] = quarterTotal;
-            }
-          );
-
-          totalCosts[description].years[year] = yearTotal;
-        });
-      });
-    });
-
-    return totalCosts;
-  };
-
-  const createGroup = (label, details) => ({
-    label,
-    details: Object.values(details ?? {}),
-  });
-
-  return [
-    createGroup("Labor Cost", laborCost),
-    createGroup("Tool Cost", toolCost),
-    createGroup("Service Cost", serviceCost),
-    createGroup("Item Cost", itemCost),
-    createGroup("Total Cost", calculateTotalCosts()),
-  ];
-};
-
-const useAllYears = (groupedData) =>
-  useMemo(
-    () =>
-      [
-        ...new Set(
-          groupedData.flatMap(({ details }) =>
-            details.flatMap(({ years }) => Object.keys(years))
-          )
-        ),
-      ].sort(),
-    [groupedData]
   );
 
 const Table = ({ result }) => {
@@ -204,20 +60,11 @@ const Table = ({ result }) => {
     } else {
       setGraphData((prevGraphs) => [...prevGraphs, { details, label }]);
     }
-
-    console.log(graphData);
   };
 
   const groupedData = useMemo(
-    () =>
-      createGroupedData(
-        result,
-        quarterMapping,
-        filteredData,
-        handleEyeIconClick,
-        graphData
-      ),
-    [result, quarterMapping, filteredData, graphData]
+    () => createGroupedData(quarterMapping, filteredData),
+    [quarterMapping, filteredData]
   );
 
   const allYears = useAllYears(groupedData);
@@ -226,7 +73,7 @@ const Table = ({ result }) => {
     const uniqueLocoNumbers = result?.Data
       ? [
           ...new Set(
-            result.Data.map(({ Loco_Description }) => Loco_Description).filter(
+            result.Data?.map(({ Loco_Description }) => Loco_Description).filter(
               Boolean
             )
           ),
@@ -255,17 +102,16 @@ const Table = ({ result }) => {
   };
 
   const renderTotalYearColumns = () => {
-    return allYears.map((year) => (
+    return allYears?.map((year) => (
       <Column
         key={year}
         field={year}
         header={
-          <button
-            className="btn-quarter-toggle"
+          <CustomButton
+            className="border-0 p-0 bg-transparent text-black font-light font-normal"
+            title={year}
             onClick={() => handleYearToggle(year)}
-          >
-            {year}
-          </button>
+          />
         }
         body={(result, { rowIndex }) => {
           const total =
@@ -292,19 +138,18 @@ const Table = ({ result }) => {
 
   const renderTotalQuarterColumns = () =>
     Array.from(expandedYears).flatMap((year) =>
-      ["Q1", "Q2", "Q3", "Q4"].map((quarter) => (
+      ["Q1", "Q2", "Q3", "Q4"]?.map((quarter) => (
         <Column
           style={{ background: "#e4e4e4" }}
           key={`${year}-${quarter}`}
           field={`${year}-${quarter}`}
           header={
             <div>
-              <button
-                className="btn-quarter-toggle"
+              <CustomButton
+                className="border-0 p-0 bg-transparent text-black font-light font-normal"
+                title={quarter}
                 onClick={() => handleQuarterToggle(year, quarter)}
-              >
-                {quarter}
-              </button>
+              />
             </div>
           }
           body={(result, { rowIndex }) => {
@@ -335,7 +180,7 @@ const Table = ({ result }) => {
   const renderTotalMonthColumns = () =>
     Array.from(expandedQuarters).flatMap((key) => {
       const [year, quarter] = key.split("-");
-      return quarterMapping[quarter].map((month) => (
+      return quarterMapping[quarter]?.map((month) => (
         <Column
           style={{ background: "#f2f2f2" }}
           key={`${year}-${quarter}-${month}`}
@@ -482,20 +327,17 @@ const Table = ({ result }) => {
   };
 
   const renderYearColumns = () =>
-    allYears.map((year) => (
+    allYears?.map((year) => (
       <Column
         style={{ background: expandedYears.has(year) ? "#d3d3d3" : "white" }}
         key={year}
         field={year}
         header={
-          <div>
-            <button
-              className="btn-year-toggle"
-              onClick={() => handleYearToggle(year)}
-            >
-              {year}
-            </button>
-          </div>
+          <CustomButton
+            className="border-0 p-0 bg-transparent text-black font-light font-normal"
+            title={year}
+            onClick={() => handleYearToggle(year)}
+          />
         }
         body={({ years, description }) => {
           const total = years[year]?.total || 0;
@@ -515,7 +357,7 @@ const Table = ({ result }) => {
   const renderMonthColumns = () =>
     Array.from(expandedQuarters).flatMap((key) => {
       const [year, quarter] = key.split("-");
-      return quarterMapping[quarter].map((month) => (
+      return quarterMapping[quarter]?.map((month) => (
         <Column
           style={{ background: "#f2f2f2" }}
           key={`${year}-${quarter}-${month}`}
@@ -546,19 +388,18 @@ const Table = ({ result }) => {
 
   const renderQuarterColumns = () =>
     Array.from(expandedYears).flatMap((year) =>
-      ["Q1", "Q2", "Q3", "Q4"].map((quarter) => {
+      ["Q1", "Q2", "Q3", "Q4"]?.map((quarter) => {
         const key = `${year}-${quarter}`;
         return (
           <Column
             key={key}
             field={key}
             header={
-              <button
-                className="btn-quarter-toggle"
+              <CustomButton
+                className="border-0 p-0 bg-transparent text-black font-light font-normal"
+                title={quarter}
                 onClick={() => handleQuarterToggle(year, quarter)}
-              >
-                {quarter}
-              </button>
+              />
             }
             body={({ years, description }) => {
               const total = years?.[year]?.quarters?.[quarter]?.total || 0;
@@ -643,36 +484,21 @@ const Table = ({ result }) => {
     );
   };
 
-  const Chart = ({ data, dataKey, label }) => {
-    return (
-      <div className="my-4 w-full" style={{ height: "400px" }}>
-        <h3 className="my-5 text-xl font-bold"> {label} :</h3>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data}>
-            {" "}
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="year" tickFormatter={(year) => year} />
-            <YAxis />
-            <RechartsTooltip />
-            <Line type="monotone" dataKey={dataKey} stroke="#8884d8" />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    );
-  };
   useEffect(() => {
     const allChartData =
       Array.isArray(graphData) && graphData.length > 0
         ? graphData
-            .map(({ details, label }) => {
+            ?.map(({ details, label }) => {
               if (details) {
                 const resultData = Object.entries(details).flatMap(
                   ([key, value]) =>
                     value.years
-                      ? Object.entries(value.years).map(([year, yearData]) => ({
-                          year,
-                          total: yearData.total || 0,
-                        }))
+                      ? Object.entries(value.years)?.map(
+                          ([year, yearData]) => ({
+                            year,
+                            total: yearData.total || 0,
+                          })
+                        )
                       : []
                 );
 
@@ -690,17 +516,11 @@ const Table = ({ result }) => {
   }, [graphData]);
 
   const handleRowExpansion = (e) => {
-    console.log("Row Data:", e.data);
     const costTypes = Object.keys(e.data || {}).filter(
       (key) => e.data[key] === true
     );
-    console.log(costTypes);
     if (costTypes.length > 0) {
       const latestCostType = costTypes[costTypes.length - 1];
-      console.log(
-        `Navigating to cost estimation for: ${latestCostType}`,
-        "isu"
-      );
 
       router.push(
         `/cost-estimation?Estimated_${encodeURIComponent(
@@ -727,12 +547,12 @@ const Table = ({ result }) => {
   }, new Map());
 
   const renderGroupedData = () =>
-    Array.from(groupedDataAll.entries()).map(([description, items]) => (
+    Array.from(groupedDataAll.entries())?.map(([description, items]) => (
       <div key={description}>
         {sidebarData.costType && (
           <h2 className="text-xl font-bold my-5">{description}</h2>
         )}
-        {items.map((data) => (
+        {items?.map((data) => (
           <div
             className="rounded-xl mt-4 border-2 border-gray-200"
             key={data.id}
@@ -756,7 +576,7 @@ const Table = ({ result }) => {
             <MultiSelect
               value={selectedLocoNumbers}
               onChange={(e) => setSelectedLocoNumbers(e.value)}
-              options={locomotiveNumbers.map((number) => ({
+              options={locomotiveNumbers?.map((number) => ({
                 label: number,
                 value: number,
               }))}
@@ -772,32 +592,15 @@ const Table = ({ result }) => {
       </div>
 
       <div className="card">
-        <Sidebar
+        <SidebarComponent
           visible={visibleRight}
-          position="right"
           onHide={() => setVisibleRight(false)}
-        >
-          <h2 className="text-2xl mr-2 font-bold mb-4">
-            {selectedLocoDescription}
-          </h2>
-          <IconField iconPosition="left" className="my-4">
-            <InputIcon className="pi pi-search" />
-            <InputText
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search ..."
-              className="w-full rounded-md"
-            />
-          </IconField>
-
-          <div>
-            {dataToDisplay?.length ? (
-              renderGroupedData()
-            ) : (
-              <p className="text-lg font-medium">Nothing to Show!</p>
-            )}
-          </div>
-        </Sidebar>
+          selectedLocoDescription={selectedLocoDescription}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          dataToDisplay={dataToDisplay}
+          renderGroupedData={renderGroupedData}
+        />
       </div>
 
       <div>
@@ -856,8 +659,8 @@ const Table = ({ result }) => {
 
       {chartData.length > 0 && (
         <div className="grid grid-cols-2 my-3 p-3 gap-12 border border-gray-100 ">
-          {chartData.map((graph, index) => (
-            <Chart
+          {chartData?.map((graph, index) => (
+            <ChartComponent
               key={index}
               data={graph.data}
               dataKey="total"
