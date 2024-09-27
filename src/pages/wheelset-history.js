@@ -1,21 +1,13 @@
-import { Column } from "primereact/column";
-import { DataTable } from "primereact/datatable";
 import { useEffect, useState } from "react";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  YAxis,
-  XAxis,
-  Tooltip as RechartsTooltip,
-} from "recharts";
 import { PDFDocument, rgb } from "pdf-lib";
 import { FloatLabel } from "primereact/floatlabel";
-import { Tooltip } from "primereact/tooltip";
 import { Dropdown } from "primereact/dropdown";
+import CustomButton from "@/component/CustomButton";
+import ChartComponent from "@/component/Chart";
+import WheelsetTable from "@/component/wheelset-history/WheelsetTable";
+
 const transformAndGroupData = (data) => {
-  const transformedData = data.map(
+  const transformedData = data?.map(
     ({ Locomotive_Number, Work_Order, ...rest }) => ({
       Name: Locomotive_Number?.Name || "-",
       Locomotive_id: Locomotive_Number?._id || "-",
@@ -68,25 +60,7 @@ const transformAndGroupData = (data) => {
     (a, b) => new Date(a.Measure_Date) - new Date(b.Measure_Date)
   );
 };
-const Chart = ({ data, dataKey, label }) => (
-  <div className="my-4 w-full" style={{ height: "400px" }}>
-    <h3 className="my-5">{label}</h3>
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis
-          dataKey="Measure_Date"
-          tickFormatter={(date) => new Date(date).toLocaleDateString()}
-        />
-        <YAxis />
-        <RechartsTooltip />
-        <Line type="monotone" dataKey={dataKey} stroke="#8884d8" />
-      </LineChart>
-    </ResponsiveContainer>
-  </div>
-);
-
-const DataTableComponent = ({ result }) => {
+const WheelsetHistory = ({ result }) => {
   const [showGraph, setShowGraph] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
   const [pdfFile, setPdfFile] = useState(null);
@@ -117,7 +91,7 @@ const DataTableComponent = ({ result }) => {
         )
       : transformedGroupedData;
     setFilteredData(filter);
-  }, [selectedDescription, transformedGroupedData]);
+  }, [selectedDescription]);
 
   const modifyAndDownloadPdf = async () => {
     if (!pdfFile) return;
@@ -197,34 +171,6 @@ const DataTableComponent = ({ result }) => {
     { dataKey: `D${i + 1}_RIGHT`, label: `D${i + 1} RIGHT` },
   ]).flat();
 
-  const getColumns = () => {
-    const DColumns = Array.from({ length: 4 }, (_, i) => [
-      { field: `D${i + 1}_LEFT`, header: `D${i + 1} LEFT` },
-      { field: `D${i + 1}_RIGHT`, header: `D${i + 1} RIGHT` },
-    ]).flat();
-
-    return [
-      {
-        field: "Description",
-        header: "Description",
-        body: (rowData) => (
-          <div className="flex justify-between min-w-20 mr-3 ">
-            <Tooltip target=".custom-target-icon" />
-            {rowData.Description}
-            <i
-              onClick={() => handleRowClick(rowData)}
-              className="custom-target-icon pi pi-file-pdf text-xl cursor-pointer"
-              data-pr-tooltip="Download Report"
-              data-pr-position="right"
-            />
-          </div>
-        ),
-      },
-      { field: "Measure_Date", header: "Measure Date" },
-      ...DColumns,
-    ];
-  };
-  const columns = getColumns();
   const handleRowClick = (rowData) => {
     const updatedData = {
       ...rowData,
@@ -238,7 +184,7 @@ const DataTableComponent = ({ result }) => {
   };
 
   const uniqueDescriptions = [
-    ...new Set(transformedGroupedData.map((item) => item.Description)),
+    ...new Set(transformedGroupedData?.map((item) => item.Description)),
   ];
 
   return (
@@ -249,7 +195,7 @@ const DataTableComponent = ({ result }) => {
             <Dropdown
               value={selectedDescription}
               onChange={(e) => setSelectedDescription(e.value)}
-              options={uniqueDescriptions.map((description) => ({
+              options={uniqueDescriptions?.map((description) => ({
                 label: description,
                 value: description,
               }))}
@@ -262,46 +208,33 @@ const DataTableComponent = ({ result }) => {
       </div>
 
       <div className="w-full flex justify-end gap-2">
-        <button
+        <CustomButton
+          title={
+            <>
+              {showGraph ? "Hide Graph" : "Show Graph"}
+              <i
+                className={`pi ${
+                  showGraph ? "pi-angle-up" : "pi-angle-down"
+                } ml-3`}
+              />
+            </>
+          }
+          className="border border-gray-200 my-2 rounded-md p-2 px-6 text-lg font-normal flex items-center"
           onClick={() => setShowGraph(!showGraph)}
-          className="border border-gray-200 my-2 rounded-md p-2 px-6 text-lg flex items-center"
-        >
-          {showGraph ? "Hide Graph" : "Show Graph"}
-          <i
-            className={`pi ${showGraph ? "pi-angle-up" : "pi-angle-down"} ml-3`}
-          />
-        </button>
+        />
       </div>
 
       <div className="w-full">
-        <DataTable
-          value={filteredData}
-          showGridlines
-          paginatorLeft
-          paginator
-          rows={10}
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          dataKey="Measure_Date"
-          selectionMode="single"
-        >
-          {columns.map((col, i) => (
-            <Column
-              key={i}
-              field={col.field}
-              header={col.header}
-              body={col.body}
-              className={`cursor-default ${
-                col.field === "Description" ? "w-[18rem]" : "w-40"
-              }`}
-            />
-          ))}
-        </DataTable>
+        <WheelsetTable
+          filteredData={filteredData}
+          handleRowClick={handleRowClick}
+        />
       </div>
 
       {showGraph && (
         <div className="grid grid-cols-2 my-3 p-3 gap-12 border border-gray-100">
-          {charts.map((chart, index) => (
-            <Chart
+          {charts?.map((chart, index) => (
+            <ChartComponent
               key={index}
               data={filteredData}
               dataKey={chart.dataKey}
@@ -363,4 +296,4 @@ export async function getServerSideProps() {
   }
 }
 
-export default DataTableComponent;
+export default WheelsetHistory;

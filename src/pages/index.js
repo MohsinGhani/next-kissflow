@@ -35,7 +35,7 @@ export default function Index() {
       ) : (
         <>
           <div className="flex">
-            {redirectPageData.map((redirectPage) => (
+            {redirectPageData?.map((redirectPage) => (
               <Card
                 className="p-2 m-2 w-80 text-xl text-text-medium  rounded-xl border border-gray-300 shadow-lg cursor-pointer hover:border-primary hover:shadow-2xl hover:text-primary transition-colors duration-300"
                 key={redirectPage.id}
