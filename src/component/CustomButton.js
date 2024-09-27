@@ -6,7 +6,7 @@ const CustomButton = ({ title, onClick, className }) => {
     <Button
       label={title}
       onClick={onClick}
-      className={`${className} bg-transparent  cursor-pointer text-inherit focus:outline-none font-normal  focus:ring-0`}
+      className={`${className} bg-transparent  cursor-pointer text-inherit focus:outline-none font-light  focus:ring-0`}
     />
   );
 };

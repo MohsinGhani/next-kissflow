@@ -130,7 +130,7 @@ export default function Home({ result, serviceEventResult }) {
                   className="bg-primary text-white border-primary px-2 font-medium py-[6px]  flex-1 text-center rounded-md"
                 >
                   <CustomButton
-                    className="border-0 p-0 "
+                    className="border-0 p-0 bg-transparent"
                     title={`Next ${months} Months`}
                     onClick={() => handleNextMonthsFilter(months)}
                   />

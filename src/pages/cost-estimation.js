@@ -108,7 +108,7 @@ const Table = ({ result }) => {
         field={year}
         header={
           <CustomButton
-            className="border-0  "
+            className="border-0 p-0 bg-transparent text-black font-light font-normal"
             title={year}
             onClick={() => handleYearToggle(year)}
           />
@@ -146,7 +146,7 @@ const Table = ({ result }) => {
           header={
             <div>
               <CustomButton
-                className="border-0 "
+                className="border-0 p-0 bg-transparent text-black font-light font-normal"
                 title={quarter}
                 onClick={() => handleQuarterToggle(year, quarter)}
               />
@@ -334,7 +334,7 @@ const Table = ({ result }) => {
         field={year}
         header={
           <CustomButton
-            className="border-0 "
+            className="border-0 p-0 bg-transparent text-black font-light font-normal"
             title={year}
             onClick={() => handleYearToggle(year)}
           />
@@ -396,7 +396,7 @@ const Table = ({ result }) => {
             field={key}
             header={
               <CustomButton
-                className="border-0 "
+                className="border-0 p-0 bg-transparent text-black font-light font-normal"
                 title={quarter}
                 onClick={() => handleQuarterToggle(year, quarter)}
               />
