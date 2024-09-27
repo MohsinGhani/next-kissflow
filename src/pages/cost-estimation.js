@@ -144,32 +144,11 @@ const createGroupedData = (
     return totalCosts;
   };
 
-  const createGroup = (label, details) => {
-    const graphExists = graphData?.find((graph) => graph.label === label);
-    return {
-      label: (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-          onClick={() => handleEyeIconClick(label, details)}
-        >
-          <span>{label}</span>
-          <i
-            className={`pi ${graphExists ? "pi-eye" : "pi-eye-slash"}`}
-            style={{ fontSize: "1.2rem", cursor: "pointer" }}
-          />
-        </div>
-      ),
-      details: Object.values(details ?? {}),
-    };
-  };
-  // const createGroup = (label, details) => ({
-  //   label,
-  //   details: Object.values(details ?? {}),
-  // });
+  const createGroup = (label, details) => ({
+    label,
+    details: Object.values(details ?? {}),
+  });
+
   return [
     createGroup("Labor Cost", laborCost),
     createGroup("Tool Cost", toolCost),
@@ -648,7 +627,7 @@ const Table = ({ result }) => {
           field="description"
           header={false}
           style={{
-            minWidth: "165px",
+            minWidth: "190px",
             cursor: "pointer",
           }}
           body={({ description }) => {
@@ -769,7 +748,6 @@ const Table = ({ result }) => {
         ))}
       </div>
     ));
-
   return (
     <div className="p-8">
       <div className="w-full flex justify-center items-start gap-4 mb-4">
@@ -838,8 +816,40 @@ const Table = ({ result }) => {
           <Column
             field="label"
             header="Cost Type"
-            style={{ minWidth: "145px", textAlign: "start", fontSize: "16px" }}
+            style={{
+              minWidth: "170px",
+              textAlign: "start",
+              fontSize: "16px",
+            }}
+            body={(rowData) => {
+              const graphExists = graphData?.find(
+                (graph) => graph.label === rowData.label
+              );
+              return (
+                <div
+                  style={{
+                    display: "flex",
+                    marginRight: "12px",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <span>{rowData.label}</span>{" "}
+                  <i
+                    onClick={() =>
+                      handleEyeIconClick(rowData.label, rowData.details)
+                    }
+                    className={`pi ${graphExists ? "pi-eye" : "pi-eye-slash"}`}
+                    style={{
+                      fontSize: "1.2rem",
+                      cursor: "pointer",
+                    }}
+                  />
+                </div>
+              );
+            }}
           />
+
           {getTotalColumnComponents()}
         </DataTable>
       </div>
