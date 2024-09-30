@@ -118,7 +118,9 @@ const DataTableComponent = ({ result }) => {
       : transformedGroupedData;
     setFilteredData(filter);
   }, [selectedDescription, transformedGroupedData]);
-
+  const sanitizeFilename = (str) => {
+    return str.replace(/[<>:"/\\|?*]/g, "_").replace(/\s+/g, "_"); // Replace invalid characters and spaces with underscores
+  };
   const modifyAndDownloadPdf = async () => {
     if (!pdfFile) return;
 
@@ -183,7 +185,12 @@ const DataTableComponent = ({ result }) => {
 
       const link = document.createElement("a");
       link.href = url;
-      link.download = "Wheel_inspection_report.pdf";
+
+      const sanitizedDescription = sanitizeFilename(selectedRow.Description);
+      const sanitizedDate = sanitizeFilename(selectedRow.Measure_Date);
+
+      const filename = `wheelset_inspection_report_${sanitizedDescription}_${sanitizedDate}.pdf`;
+      link.download = filename;
       link.click();
 
       URL.revokeObjectURL(url);
@@ -191,7 +198,6 @@ const DataTableComponent = ({ result }) => {
       console.error("Error modifying PDF:", error);
     }
   };
-
   const charts = Array.from({ length: 4 }, (_, i) => [
     { dataKey: `D${i + 1}_LEFT`, label: `D${i + 1} LEFT` },
     { dataKey: `D${i + 1}_RIGHT`, label: `D${i + 1} RIGHT` },

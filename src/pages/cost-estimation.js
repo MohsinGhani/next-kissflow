@@ -204,8 +204,6 @@ const Table = ({ result }) => {
     } else {
       setGraphData((prevGraphs) => [...prevGraphs, { details, label }]);
     }
-
-    console.log(graphData);
   };
 
   const groupedData = useMemo(
@@ -644,11 +642,12 @@ const Table = ({ result }) => {
   };
 
   const Chart = ({ data, dataKey, label }) => {
+    const formattedData = formatData(data);
     return (
-      <div className="my-4 w-full" style={{ height: "400px" }}>
-        <h3 className="my-5 text-xl font-bold"> {label} :</h3>
+      <div className="w-full" style={{ height: "400px" }}>
+        <h3 className="mb-5 text-xl font-bold"> {label} :</h3>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data}>
+          <LineChart data={formattedData}>
             {" "}
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="year" tickFormatter={(year) => year} />
@@ -690,17 +689,11 @@ const Table = ({ result }) => {
   }, [graphData]);
 
   const handleRowExpansion = (e) => {
-    console.log("Row Data:", e.data);
     const costTypes = Object.keys(e.data || {}).filter(
       (key) => e.data[key] === true
     );
-    console.log(costTypes);
     if (costTypes.length > 0) {
       const latestCostType = costTypes[costTypes.length - 1];
-      console.log(
-        `Navigating to cost estimation for: ${latestCostType}`,
-        "isu"
-      );
 
       router.push(
         `/cost-estimation?Estimated_${encodeURIComponent(
@@ -748,6 +741,18 @@ const Table = ({ result }) => {
         ))}
       </div>
     ));
+  const formatData = (data) => {
+    const years = Array.from(new Set(data.map((item) => item.year))).sort();
+    const formattedData = years.map((year) => {
+      const total = data
+        .filter((item) => item.year === year)
+        .reduce((sum, item) => sum + item.total, 0);
+      return { year, total };
+    });
+
+    return formattedData;
+  };
+
   return (
     <div className="p-8">
       <div className="w-full flex justify-center items-start gap-4 mb-4">
@@ -855,7 +860,7 @@ const Table = ({ result }) => {
       </div>
 
       {chartData.length > 0 && (
-        <div className="grid grid-cols-2 my-3 p-3 gap-12 border border-gray-100 ">
+        <div className="grid grid-cols-2 my-3 p-3 gap-12 bg-white border border-gray-100 ">
           {chartData.map((graph, index) => (
             <Chart
               key={index}
