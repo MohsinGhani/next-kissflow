@@ -1,7 +1,12 @@
 import { useMemo } from "react";
 
 export const groupCosts = (data, costKey, quarterMapping) => {
-  return data.reduce((acc, item) => {
+  if (!Array.isArray(data)) {
+    console.error("Expected an array, but received:", data);
+    return {};
+  }
+
+  return data?.reduce((acc, item) => {
     const description = item.Loco_Description || "Unknown";
     const date = item.Next_Due_Date;
     const costValue = item[costKey];

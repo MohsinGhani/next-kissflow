@@ -5,6 +5,7 @@ import { Dropdown } from "primereact/dropdown";
 import CustomButton from "@/component/CustomButton";
 import ChartComponent from "@/component/Chart";
 import WheelsetTable from "@/component/wheelset-history/WheelsetTable";
+import { modifyAndDownloadPdf } from "@/component/GeneratePDF";
 
 const transformAndGroupData = (data) => {
   const transformedData = data?.map(
@@ -62,7 +63,6 @@ const transformAndGroupData = (data) => {
 };
 const WheelsetHistory = ({ result }) => {
   const [showGraph, setShowGraph] = useState(false);
-  const [selectedRow, setSelectedRow] = useState(null);
   const [pdfFile, setPdfFile] = useState(null);
   const [selectedDescription, setSelectedDescription] = useState(null);
   const [filteredData, setFilteredData] = useState([]);
@@ -93,79 +93,6 @@ const WheelsetHistory = ({ result }) => {
     setFilteredData(filter);
   }, [selectedDescription]);
 
-  const modifyAndDownloadPdf = async () => {
-    if (!pdfFile) return;
-
-    try {
-      const pdfDoc = await PDFDocument.load(pdfFile);
-      const page = pdfDoc.getPages()[0];
-
-      const {
-        Locomotive_Number: locoNumber,
-        Mileage,
-        Operating_Company: companyText,
-      } = selectedRow;
-
-      const positions = [
-        { name: "SD", y: 380 },
-        { name: "SH", y: 360 },
-        { name: "QR", y: 343 },
-        { name: "D", y: 325 },
-        { name: "H", y: 305 },
-      ];
-      const textToDraw = [
-        { text: locoNumber, x: 420, y: 750, size: 10 },
-        { text: companyText, x: 150, y: 720, size: 10 },
-        { text: Mileage, x: 420, y: 720, size: 10 },
-      ];
-      textToDraw.forEach(({ text, x, y, size }) => {
-        page.drawText(text?.toString() || "-", {
-          x,
-          y,
-          size,
-          color: rgb(0, 100 / 255, 0),
-        });
-      });
-      const drawTextGroup = (groupName, y) => {
-        for (let i = 1; i <= 4; i++) {
-          const left = selectedRow[`${groupName}${i}_LEFT`];
-          const right = selectedRow[`${groupName}${i}_RIGHT`];
-          const leftX = 140 + (i - 1) * 100;
-          const rightX = 190 + (i - 1) * 100;
-
-          page.drawText(left?.toString() || "-", {
-            x: leftX,
-            y,
-            size: 8,
-            color: rgb(139 / 255, 0, 0),
-          });
-          page.drawText(right?.toString() || "-", {
-            x: rightX,
-            y,
-            size: 8,
-            color: rgb(139 / 255, 0, 0),
-          });
-        }
-      };
-
-      positions.forEach((pos) => drawTextGroup(pos.name, pos.y));
-
-      const pdfBytes = await pdfDoc.save();
-
-      const blob = new Blob([pdfBytes], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "Wheel_inspection_report.pdf";
-      link.click();
-
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Error modifying PDF:", error);
-    }
-  };
-
   const charts = Array.from({ length: 4 }, (_, i) => [
     { dataKey: `D${i + 1}_LEFT`, label: `D${i + 1} LEFT` },
     { dataKey: `D${i + 1}_RIGHT`, label: `D${i + 1} RIGHT` },
@@ -179,8 +106,7 @@ const WheelsetHistory = ({ result }) => {
       Mileage: "1000 km",
       Operating_Company: "Operating Company Name",
     };
-    setSelectedRow(updatedData);
-    modifyAndDownloadPdf();
+    modifyAndDownloadPdf(pdfFile, updatedData);
   };
 
   const uniqueDescriptions = [
