@@ -144,29 +144,10 @@ const createGroupedData = (
     return totalCosts;
   };
 
-  const createGroup = (label, details) => {
-    const graphExists = graphData.find((graph) => graph.label === label);
-
-    return {
-      label: (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-          onClick={() => handleEyeIconClick(label, details)}
-        >
-          <span>{label}</span>
-          <i
-            className={`pi ${graphExists ? "pi-eye" : "pi-eye-slash"}`}
-            style={{ fontSize: "1.2rem", cursor: "pointer" }}
-          />
-        </div>
-      ),
-      details: Object.values(details ?? {}),
-    };
-  };
+  const createGroup = (label, details) => ({
+    label,
+    details: Object.values(details ?? {}),
+  });
 
   return [
     createGroup("Labor Cost", laborCost),
@@ -214,30 +195,15 @@ const Table = ({ result }) => {
   );
 
   const handleEyeIconClick = (label, details) => {
-    const graphExists = graphData.find((graph) => graph.label === label);
+    const graphExists = graphData?.find((graph) => graph.label === label);
 
     if (graphExists) {
       setGraphData((prevGraphs) =>
         prevGraphs.filter((graph) => graph.label !== label)
       );
     } else {
-      // const data = {
-      //   labels: Object.keys(details).map((year) => year),
-      //   datasets: [
-      //     {
-      //       label: label, // Cost Type as label
-      //       data: Object.values(details).map((yearData) => yearData.total),
-      //       fill: false,
-      //       borderColor: "#42A5F5",
-      //       tension: 0.4,
-      //     },
-      //   ],
-      // };
-
       setGraphData((prevGraphs) => [...prevGraphs, { details, label }]);
     }
-
-    console.log(graphData);
   };
 
   const groupedData = useMemo(
@@ -247,9 +213,9 @@ const Table = ({ result }) => {
         quarterMapping,
         filteredData,
         handleEyeIconClick,
-        graphData // Pass graphData to createGroupedData
+        graphData
       ),
-    [result, quarterMapping, filteredData, graphData] // Add graphData to the dependency array
+    [result, quarterMapping, filteredData, graphData]
   );
 
   const allYears = useAllYears(groupedData);
@@ -659,7 +625,7 @@ const Table = ({ result }) => {
           field="description"
           header={false}
           style={{
-            minWidth: "165px",
+            minWidth: "190px",
             cursor: "pointer",
           }}
           body={({ description }) => {
@@ -676,11 +642,12 @@ const Table = ({ result }) => {
   };
 
   const Chart = ({ data, dataKey, label }) => {
+    const formattedData = formatData(data);
     return (
-      <div className="my-4 w-full" style={{ height: "400px" }}>
-        <h3 className="my-5 text-xl font-bold"> {label} :</h3>
+      <div className="w-full" style={{ height: "400px" }}>
+        <h3 className="mb-5 text-xl font-bold"> {label} :</h3>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data}>
+          <LineChart data={formattedData}>
             {" "}
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="year" tickFormatter={(year) => year} />
@@ -692,55 +659,49 @@ const Table = ({ result }) => {
       </div>
     );
   };
-
   useEffect(() => {
-    if (graphData && Array.isArray(graphData) && graphData.length > 0) {
-      const allChartData = graphData
-        .map((graphItem) => {
-          const { details, label } = graphItem;
+    const allChartData =
+      Array.isArray(graphData) && graphData.length > 0
+        ? graphData
+            .map(({ details, label }) => {
+              if (details) {
+                const resultData = Object.entries(details).flatMap(
+                  ([key, value]) =>
+                    value.years
+                      ? Object.entries(value.years).map(([year, yearData]) => ({
+                          year,
+                          total: yearData.total || 0,
+                        }))
+                      : []
+                );
 
-          if (details) {
-            const resultData = Object.entries(details).flatMap(
-              ([key, value]) => {
-                if (value.years) {
-                  return Object.entries(value.years).map(
-                    ([year, yearData]) => ({
-                      year: year,
-                      total: yearData.total || 0,
-                    })
-                  );
-                }
-                return [];
+                return {
+                  label,
+                  data: resultData.filter((item) => item.year),
+                };
               }
-            );
+              return null;
+            })
+            .filter((item) => item !== null)
+        : [];
 
-            const filteredResult = resultData.filter((item) => item.year);
-
-            return {
-              label: label,
-              data: filteredResult,
-            };
-          }
-
-          return null;
-        })
-        .filter((item) => item !== null);
-
-      setChartData(allChartData);
-    }
+    setChartData(allChartData);
   }, [graphData]);
 
   const handleRowExpansion = (e) => {
     const costTypes = Object.keys(e.data || {}).filter(
       (key) => e.data[key] === true
     );
-    const latestCostType = costTypes.pop();
-    if (latestCostType) {
+    if (costTypes.length > 0) {
+      const latestCostType = costTypes[costTypes.length - 1];
+
       router.push(
         `/cost-estimation?Estimated_${encodeURIComponent(
           latestCostType.replace(/\s+/g, "_")
         )}`
       );
+    } else {
+      console.warn("No valid cost types found", e.data);
     }
   };
 
@@ -780,6 +741,17 @@ const Table = ({ result }) => {
         ))}
       </div>
     ));
+  const formatData = (data) => {
+    const years = Array.from(new Set(data.map((item) => item.year))).sort();
+    const formattedData = years.map((year) => {
+      const total = data
+        .filter((item) => item.year === year)
+        .reduce((sum, item) => sum + item.total, 0);
+      return { year, total };
+    });
+
+    return formattedData;
+  };
 
   return (
     <div className="p-8">
@@ -849,14 +821,47 @@ const Table = ({ result }) => {
           <Column
             field="label"
             header="Cost Type"
-            style={{ minWidth: "145px", textAlign: "start", fontSize: "16px" }}
+            style={{
+              minWidth: "170px",
+              textAlign: "start",
+              fontSize: "16px",
+            }}
+            body={(rowData) => {
+              const graphExists = graphData?.find(
+                (graph) => graph.label === rowData.label
+              );
+              return (
+                <div
+                  style={{
+                    display: "flex",
+                    marginRight: "12px",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <span>{rowData.label}</span>{" "}
+                  <i
+                    onClick={() =>
+                      handleEyeIconClick(rowData.label, rowData.details)
+                    }
+                    className={`pi ${graphExists ? "pi-eye" : "pi-eye-slash"}`}
+                    style={{
+                      fontSize: "1.2rem",
+                      cursor: "pointer",
+                    }}
+                  />
+                </div>
+              );
+            }}
           />
+
           {getTotalColumnComponents()}
         </DataTable>
       </div>
-      <div className="grid grid-cols-2 my-3 p-3 gap-12 border border-gray-100 ">
-        {chartData.length > 0 &&
-          chartData.map((graph, index) => (
+
+      {chartData.length > 0 && (
+        <div className="grid grid-cols-2 my-3 p-3 gap-12 bg-white border border-gray-100 ">
+          {chartData.map((graph, index) => (
             <Chart
               key={index}
               data={graph.data}
@@ -864,7 +869,8 @@ const Table = ({ result }) => {
               label={graph.label}
             />
           ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
