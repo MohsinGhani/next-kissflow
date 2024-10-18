@@ -42,7 +42,7 @@ export default function Home({ result, serviceEventResult }) {
   };
 
   const customizedContent = (item) => {
-    const {
+    let {
       _id,
       WO_Number,
       Next_Due_Date,
@@ -52,6 +52,11 @@ export default function Home({ result, serviceEventResult }) {
       Repair_Workshop,
     } = item;
 
+    if (typeof WO_Number === "object") {
+      WO_Number = WO_Number.wonum;
+    } else {
+      WO_Number = WO_Number;
+    }
     const futureDate = getDateAfterDays(60);
     const currentDate = moment().startOf("day");
     const dueDate = moment(Next_Due_Date, "YYYY-MM-DD");
@@ -63,7 +68,6 @@ export default function Home({ result, serviceEventResult }) {
       "[]"
     );
     const isDueDateInPast = dueDate.isBefore(currentDate);
-
     const daysDifference = dueDate.diff(currentDate, "days");
 
     let daysText = "";
@@ -79,8 +83,7 @@ export default function Home({ result, serviceEventResult }) {
         const weeks = Math.floor(daysDifference / 7);
         daysText = `In ${weeks} week${weeks > 1 ? "s" : ""}`;
       } else {
-        const days = Math.floor(daysDifference / 7);
-        daysText = `In ${daysDifference} day${days !== -1 ? "s" : ""}`;
+        daysText = `In ${daysDifference} day${daysDifference !== 1 ? "s" : ""}`;
       }
     } else {
       const pastDaysDifference = Math.abs(daysDifference);
@@ -94,102 +97,64 @@ export default function Home({ result, serviceEventResult }) {
         const weeks = Math.floor(pastDaysDifference / 7);
         daysText = `${weeks} week${weeks > 1 ? "s" : ""} ago`;
       } else {
-        const days = Math.floor(daysDifference / 7);
-        daysText = `${pastDaysDifference} day${days !== 1 ? "s" : ""} ago`;
+        daysText = `${pastDaysDifference} day${
+          pastDaysDifference !== 1 ? "s" : ""
+        } ago`;
       }
     }
-
     return (
       <>
-        {WO_Number ? (
-          <>
-            <Card
-              key={_id}
-              className={`custom-card ${
+        <Card
+          key={_id}
+          className={`custom-card ${
+            isDueDateInPast && WO_Number
+              ? "green-card"
+              : isForecastDateWithin60Days
+              ? "yellow-card"
+              : service
+              ? "service-card"
+              : "simple-card"
+          }`}
+        >
+          <h3
+            className="card-title font-lato text-xl font-bold text-black"
+            title={Loco_Description}
+          >
+            {Loco_Description}
+          </h3>
+          {daysDifference !== 0 && (
+            <p className="text-start font-lato text-sm text-textMedium">
+              {daysText}
+            </p>
+          )}
+          {WO_Number && (
+            <Tag
+              value={`# ${WO_Number}`}
+              className={`font-lato text-sm font-semibold ${
                 isDueDateInPast
-                  ? "green-card"
+                  ? "bg-secondary"
                   : isForecastDateWithin60Days
-                  ? "yellow-card"
-                  : service
-                  ? "service-card"
-                  : "green-card"
+                  ? "bg-accent"
+                  : "bg-secondary"
               }`}
-            >
-              <h3
-                className="card-title font-lato text-xl font-bold text-black"
-                title={Loco_Description}
-              >
-                {Loco_Description}
-              </h3>
-              {daysDifference !== 0 && (
-                <p className={`text-center font-lato text-sm text-textMedium`}>
-                  {daysText}
-                </p>
-              )}
-              <Tag
-                value={`# ${WO_Number}`}
-                className={`font-lato text-sm font-semibold ${
-                  isDueDateInPast
-                    ? "bg-secondary"
-                    : isForecastDateWithin60Days
-                    ? "bg-accent"
-                    : "bg-secondary"
-                }`}
-              />
-              <Tag
-                icon="pi pi-calendar"
-                value={Next_Due_Date}
-                className={`font-lato text-sm font-normal ${
-                  isForecastDateWithin60Days
-                    ? "bg-MediumBackground"
-                    : "bg-MediumBackground"
-                }`}
-              />
-              <p className="card-description text-xs" title={PM_Description}>
-                {PM_Description}
-              </p>
-              <p
-                className="card-description text-xs"
-                title={Repair_Workshop?.Name}
-              >
-                {Repair_Workshop?.Name}
-              </p>
-            </Card>
-          </>
-        ) : (
-          <>
-            <Card
-              key={_id}
-              className={`simple-card ${service ? "service-card" : ""}`}
-            >
-              <h3
-                className="card-title font-lato text-xl font-bold text-black"
-                title={Loco_Description}
-              >
-                {Loco_Description}
-              </h3>
-              {daysDifference !== 0 && (
-                <p className="text-center font-lato text-sm text-textMedium">
-                  {daysText}
-                </p>
-              )}
-              <Tag
-                icon="pi pi-calendar"
-                value={Next_Due_Date}
-                className="bg-primary"
-              />
-              <p className="card-description text-xs" title={PM_Description}>
-                {PM_Description}
-              </p>
-              <p
-                className="card-description text-xs"
-                title={Repair_Workshop?.Name}
-              >
-                {Repair_Workshop?.Name}
-              </p>
-            </Card>
-          </>
-        )}
+            />
+          )}
+          <Tag
+            icon="pi pi-calendar"
+            value={Next_Due_Date}
+            className={`font-lato text-sm font-normal ${
+              isForecastDateWithin60Days || WO_Number
+                ? "bg-MediumBackground"
+                : "bg-primary"
+            }`}
+          />
+          <p className="card-description text-xs" title={PM_Description}>
+            {PM_Description}
+          </p>
+          <p className="card-description text-xs" title={Repair_Workshop?.Name}>
+            {Repair_Workshop?.Name}
+          </p>
+        </Card>
       </>
     );
   };
@@ -252,8 +217,14 @@ export default function Home({ result, serviceEventResult }) {
       });
   }, [result?.Data, serviceEventResult?.Data, selectedLocoNumbers, dates]);
 
-  const handleData = (rowData, field) => rowData[field] || "-";
-
+  const handleData = (rowData, field) => {
+    const value = rowData[field];
+    if (typeof value === "object" && value !== null) {
+      return value.wonum || "-";
+    } else {
+      return value || "-";
+    }
+  };
   return (
     <div className="timeline-container pt-8">
       <div className="w-full fixed  flex flex-col justify-center items-center gap-4">
