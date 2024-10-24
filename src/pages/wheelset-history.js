@@ -1,6 +1,6 @@
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CartesianGrid,
   Line,
@@ -14,6 +14,22 @@ import { PDFDocument, rgb } from "pdf-lib";
 import { FloatLabel } from "primereact/floatlabel";
 import { Tooltip } from "primereact/tooltip";
 import { Dropdown } from "primereact/dropdown";
+
+const formatNumberWithPeriods = (number) => {
+  const roundedNumber = Math.round(number);
+
+  let numberString = roundedNumber.toString();
+
+  const formattedIntegerPart = numberString
+    .split("")
+    .reverse()
+    .map((digit, index) => (index > 0 && index % 3 === 0 ? `${digit}.` : digit))
+    .reverse()
+    .join("");
+
+  return formattedIntegerPart;
+};
+
 const transformAndGroupData = (data) => {
   const transformedData = data.map(
     ({ Locomotive_Number, Work_Order, ...rest }) => ({
@@ -22,8 +38,8 @@ const transformAndGroupData = (data) => {
       Work_Order_Name: Work_Order?.Name || "-",
       Work_Order_Number: Work_Order?.wonum || "-",
       Measure_Date: rest.Measure_Date || "-",
-      D_LEFT: rest.D_LEFT || 0,
-      D_RIGHT: rest.D_RIGHT || 0,
+      D_LEFT: formatNumberWithPeriods(rest.D_LEFT) || 0,
+      D_RIGHT: formatNumberWithPeriods(rest.D_RIGHT) || 0,
       Homologation_Date: Locomotive_Number?.Homologation_Date || "-",
       Position: rest.Position || "-",
       ...rest,
@@ -88,10 +104,9 @@ const Chart = ({ data, dataKey, label }) => (
 
 const DataTableComponent = ({ result }) => {
   const [showGraph, setShowGraph] = useState(false);
-  const [selectedRow, setSelectedRow] = useState(null);
   const [pdfFile, setPdfFile] = useState(null);
   const [selectedDescription, setSelectedDescription] = useState(null);
-  const [filteredData, setFilteredData] = useState([]);
+  // const [filteredData, setFilteredData] = useState([]);
   const transformedGroupedData = transformAndGroupData(result.Data);
 
   const pdfUrlLocal = "/wheelSetForm.pdf";
@@ -110,18 +125,27 @@ const DataTableComponent = ({ result }) => {
     }
   }, []);
 
-  useEffect(() => {
-    const filter = selectedDescription
+  // useEffect(() => {
+  //   const filter = selectedDescription
+  //     ? transformedGroupedData.filter(
+  //         (item) => item.Description === selectedDescription
+  //       )
+  //     : transformedGroupedData;
+  //   setFilteredData(filter);
+  // }, [selectedDescription, transformedGroupedData]);
+
+  const filteredData = useMemo(() => {
+    return selectedDescription
       ? transformedGroupedData.filter(
           (item) => item.Description === selectedDescription
         )
       : transformedGroupedData;
-    setFilteredData(filter);
   }, [selectedDescription, transformedGroupedData]);
+
   const sanitizeFilename = (str) => {
     return str.replace(/[<>:"/\\|?*]/g, "_").replace(/\s+/g, "_"); // Replace invalid characters and spaces with underscores
   };
-  const modifyAndDownloadPdf = async () => {
+  const modifyAndDownloadPdf = async (rowData) => {
     if (!pdfFile) return;
 
     try {
@@ -132,7 +156,7 @@ const DataTableComponent = ({ result }) => {
         Locomotive_Number: locoNumber,
         Mileage,
         Operating_Company: companyText,
-      } = selectedRow;
+      } = rowData;
 
       const positions = [
         { name: "SD", y: 380 },
@@ -156,8 +180,8 @@ const DataTableComponent = ({ result }) => {
       });
       const drawTextGroup = (groupName, y) => {
         for (let i = 1; i <= 4; i++) {
-          const left = selectedRow[`${groupName}${i}_LEFT`];
-          const right = selectedRow[`${groupName}${i}_RIGHT`];
+          const left = rowData[`${groupName}${i}_LEFT`];
+          const right = rowData[`${groupName}${i}_RIGHT`];
           const leftX = 140 + (i - 1) * 100;
           const rightX = 190 + (i - 1) * 100;
 
@@ -186,10 +210,11 @@ const DataTableComponent = ({ result }) => {
       const link = document.createElement("a");
       link.href = url;
 
-      const sanitizedDescription = sanitizeFilename(selectedRow.Description);
-      const sanitizedDate = sanitizeFilename(selectedRow.Measure_Date);
+      const sanitizedDescription = sanitizeFilename(rowData?.Description);
+      const sanitizedDate = sanitizeFilename(rowData?.Measure_Date);
 
-      const filename = `wheelset_inspection_report_${sanitizedDescription}_${sanitizedDate}.pdf`;
+      const filename = `wheelset_inspection_${sanitizedDescription}_${sanitizedDate}.pdf`;
+
       link.download = filename;
       link.click();
 
@@ -205,32 +230,44 @@ const DataTableComponent = ({ result }) => {
 
   const getColumns = () => {
     const DColumns = Array.from({ length: 4 }, (_, i) => [
-      { field: `D${i + 1}_LEFT`, header: `D${i + 1} LEFT` },
-      { field: `D${i + 1}_RIGHT`, header: `D${i + 1} RIGHT` },
+      {
+        field: `D${i + 1}_LEFT`,
+        header: `D${i + 1} LEFT`,
+        body: (rowData) => formatNumberWithPeriods(rowData[`D${i + 1}_LEFT`]),
+      },
+      {
+        field: `D${i + 1}_RIGHT`,
+        header: `D${i + 1} RIGHT`,
+        body: (rowData) => formatNumberWithPeriods(rowData[`D${i + 1}_RIGHT`]),
+      },
     ]).flat();
 
     return [
       {
         field: "Description",
         header: "Description",
-        body: (rowData) => (
-          <div className="flex justify-between min-w-20 mr-3 ">
-            <Tooltip target=".custom-target-icon" />
-            {rowData.Description}
-            <i
-              onClick={() => handleRowClick(rowData)}
-              className="custom-target-icon pi pi-file-pdf text-xl cursor-pointer"
-              data-pr-tooltip="Download Report"
-              data-pr-position="right"
-            />
-          </div>
-        ),
+        body: (rowData) => {
+          return (
+            <div className="flex justify-between min-w-20 mr-3 ">
+              <Tooltip target=".custom-target-icon" />
+              {rowData?.Description}
+              <i
+                onClick={() => handleRowClick(rowData)}
+                className="custom-target-icon pi pi-file-pdf text-xl cursor-pointer"
+                data-pr-tooltip="Download Report"
+                data-pr-position="right"
+              />
+            </div>
+          );
+        },
       },
       { field: "Measure_Date", header: "Measure Date" },
       ...DColumns,
     ];
   };
+
   const columns = getColumns();
+
   const handleRowClick = (rowData) => {
     const updatedData = {
       ...rowData,
@@ -239,8 +276,7 @@ const DataTableComponent = ({ result }) => {
       Mileage: "1000 km",
       Operating_Company: "Operating Company Name",
     };
-    setSelectedRow(updatedData);
-    modifyAndDownloadPdf();
+    modifyAndDownloadPdf(updatedData);
   };
 
   const uniqueDescriptions = [
@@ -290,17 +326,19 @@ const DataTableComponent = ({ result }) => {
           dataKey="Measure_Date"
           selectionMode="single"
         >
-          {columns.map((col, i) => (
-            <Column
-              key={i}
-              field={col.field}
-              header={col.header}
-              body={col.body}
-              className={`cursor-default ${
-                col.field === "Description" ? "w-[18rem]" : "w-40"
-              }`}
-            />
-          ))}
+          {columns.map((col, i) => {
+            return (
+              <Column
+                key={i}
+                field={col.field}
+                header={col.header}
+                body={col.body}
+                className={`cursor-default ${
+                  col.field === "Description" ? "w-[18rem]" : "w-40"
+                }`}
+              />
+            );
+          })}
         </DataTable>
       </div>
 
@@ -319,6 +357,8 @@ const DataTableComponent = ({ result }) => {
     </div>
   );
 };
+
+export default DataTableComponent;
 
 export async function getServerSideProps() {
   const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
@@ -368,5 +408,3 @@ export async function getServerSideProps() {
     };
   }
 }
-
-export default DataTableComponent;
